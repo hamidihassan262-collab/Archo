@@ -122,7 +122,15 @@ export default function Cases() {
           user_id: user.id
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase Insert Error (Detailed):', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
       
       setShowAddModal(false);
       resetForm();

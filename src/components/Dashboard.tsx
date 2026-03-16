@@ -116,8 +116,13 @@ export default function Dashboard() {
         });
 
       if (error) {
-        console.error('Supabase insert error:', error);
-        setModalError('Failed to save case to database. Please try again.');
+        console.error('Supabase Insert Error (Detailed):', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        setModalError(`Database Error: ${error.message} (Code: ${error.code})`);
         return;
       }
       
