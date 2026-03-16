@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-archo-brass: #8B732E;
+  --color-archo-brass-light: #B59410;
+  --color-archo-brass-pale: #D4AF37;
+  --color-archo-cream: #FDFCF0;
+  --color-archo-paper: #F5F2ED;
+  --color-archo-ink: #1A1A1A;
+  --color-archo-slate: #5A5A40;
+  --color-archo-muted: #8E8E7E;
+}
+
+@layer base {
+  body {
+    @apply bg-archo-paper text-archo-ink font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4 {
+    @apply font-serif;
+  }
+}
+
+.kanban-column {
+  @apply flex-shrink-0 w-72 flex flex-col gap-3;
+}
+
+.case-card {
+  @apply bg-archo-cream p-5 rounded-2xl border border-archo-brass/10 shadow-sm hover:shadow-md transition-all cursor-pointer;
+}
+
+.brass-border {
+  @apply border border-archo-brass/20;
+}
+
+.brass-gradient {
+  background: linear-gradient(135deg, #8B732E 0%, #B59410 50%, #8B732E 100%);
+}
+
+.markdown-body {
+  @apply space-y-4;
+}
+
+.markdown-body p {
+  @apply mb-2;
+}
+
+.markdown-body strong {
+  @apply font-bold text-archo-brass;
+}
+
+.markdown-body em {
+  @apply italic;
+}
+
+.markdown-body ul {
+  @apply list-disc list-inside space-y-1 ml-4;
+}
+
+.markdown-body ol {
+  @apply list-decimal list-inside space-y-1 ml-4;
+}
+
+.markdown-body li {
+  @apply text-inherit;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  @apply font-serif font-bold text-archo-ink mt-6 mb-2;
+}
+
+.markdown-body h1 { @apply text-xl; }
+.markdown-body h2 { @apply text-lg; }
+.markdown-body h3 { @apply text-base; }
+
+.markdown-body code {
+  @apply font-mono bg-archo-brass/10 px-1.5 py-0.5 rounded text-sm text-archo-brass;
+}
+
+.markdown-body blockquote {
+  @apply border-l-4 border-archo-brass pl-4 italic text-archo-slate;
+}
