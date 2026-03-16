@@ -95,6 +95,20 @@ export default function Cases() {
     e.preventDefault();
     setModalError(null);
     try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        setModalError('You must be logged in to create a case. Redirecting to login...');
+        setTimeout(() => {
+          // If we had a router, we'd use navigate('/login')
+          // For now, we'll use a custom event or state change if possible, 
+          // but since we're in a component, we'll just set a flag or use window.location if it's a separate page.
+          // Given the prompt, I will assume a '/login' route exists or should exist.
+          window.location.href = '/login';
+        }, 2000);
+        return;
+      }
+
       const { error } = await supabase
         .from('cases')
         .insert({
@@ -104,15 +118,16 @@ export default function Cases() {
           loan_amount: Number(formData.loanAmount),
           ltv: Number(formData.ltv) || Math.round((Number(formData.loanAmount) / Number(formData.propertyValue)) * 100),
           status_colour: formData.statusColour,
-          assigned_to: formData.assignedTo
+          assigned_to: formData.assignedTo,
+          user_id: user.id
         });
 
       if (error) throw error;
       
       setShowAddModal(false);
       resetForm();
-    } catch (error) {
-      setModalError('Failed to save case. Please check your connection.');
+    } catch (error: any) {
+      setModalError(error.message || 'Failed to save case. Please check your connection.');
     }
   };
 
@@ -121,6 +136,12 @@ export default function Cases() {
     if (!selectedCase) return;
     setModalError(null);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setModalError('You must be logged in to update a case.');
+        return;
+      }
+
       const { error } = await supabase
         .from('cases')
         .update({
@@ -139,8 +160,8 @@ export default function Cases() {
       setShowEditModal(false);
       setSelectedCase(null);
       resetForm();
-    } catch (error) {
-      setModalError('Failed to update case.');
+    } catch (error: any) {
+      setModalError(error.message || 'Failed to update case.');
     }
   };
 
@@ -148,14 +169,20 @@ export default function Cases() {
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this case?')) return;
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert('You must be logged in to delete a case.');
+        return;
+      }
+
       const { error } = await supabase
         .from('cases')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
-    } catch (error) {
-      alert('Failed to delete case');
+    } catch (error: any) {
+      alert(error.message || 'Failed to delete case');
     }
   };
 

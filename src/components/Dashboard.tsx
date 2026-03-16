@@ -91,6 +91,16 @@ export default function Dashboard() {
     e.preventDefault();
     setModalError(null);
     try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        setModalError('You must be logged in to create a case. Redirecting to login...');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+        return;
+      }
+
       // Save to Supabase as requested
       const { error } = await supabase
         .from('cases')
@@ -101,7 +111,8 @@ export default function Dashboard() {
           loan_amount: Number(newCase.loanAmount),
           ltv: Number(newCase.ltv) || Math.round((Number(newCase.loanAmount) / Number(newCase.propertyValue)) * 100),
           status_colour: newCase.statusColour,
-          assigned_to: newCase.assignedTo
+          assigned_to: newCase.assignedTo,
+          user_id: user.id
         });
 
       if (error) {
@@ -122,8 +133,8 @@ export default function Dashboard() {
       });
       // Real-time subscription will handle the UI update, but we can also call loadCases() to be sure
       loadCases();
-    } catch (error) {
-      setModalError('An unexpected error occurred. Please try again.');
+    } catch (error: any) {
+      setModalError(error.message || 'An unexpected error occurred. Please try again.');
     }
   };
 

@@ -12,12 +12,14 @@ import CopilotChat from './components/CopilotChat';
 import Compliance from './components/Compliance';
 import Threads from './components/Threads';
 import SettingsModal from './components/SettingsModal';
+import Auth from './components/Auth';
 import { Bell, Search, HelpCircle } from 'lucide-react';
 import { supabase, getUser } from '../supabaseClient';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAuthPage, setIsAuthPage] = useState(window.location.pathname === '/login');
   const [userProfile, setUserProfile] = useState({
     name: 'Hassan Hamidi',
     role: 'Independent Broker',
@@ -29,6 +31,9 @@ export default function App() {
       const user = await getUser();
       if (user) {
         setUserProfile(prev => ({ ...prev, email: user.email || prev.email }));
+      } else if (window.location.pathname !== '/login') {
+        // Optional: redirect to login if not authenticated
+        // window.location.href = '/login';
       }
     };
     initAuth();
@@ -36,9 +41,11 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN') {
         console.log('Logged in as:', session?.user.email);
+        setIsAuthPage(false);
       }
       if (event === 'SIGNED_OUT') {
         console.log('Logged out');
+        setIsAuthPage(true);
       }
     });
 
@@ -46,6 +53,10 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  if (isAuthPage) {
+    return <Auth />;
+  }
 
   const renderContent = () => {
     switch (activeTab) {
