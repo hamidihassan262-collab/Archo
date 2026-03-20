@@ -9,35 +9,127 @@ import PrimaryButton from './PrimaryButton';
 
 const SEED_LENDERS = [
   {
-    name: 'Accord Mortgages',
+    name: 'Nationwide Building Society',
     max_ltv: 95,
-    min_income: 20000,
-    self_employed_policy: '2 years accounts required. Will consider 1 year with projection.',
-    adverse_credit_stance: 'Strict. No CCJs in last 3 years.',
-    updated_at: new Date().toISOString()
-  },
-  {
-    name: 'NatWest',
-    max_ltv: 90,
     min_income: 0,
-    self_employed_policy: 'Average of last 2 years. 1 year considered for professionals.',
-    adverse_credit_stance: 'Case by case. Small defaults ignored if satisfied.',
-    updated_at: new Date().toISOString()
-  },
-  {
-    name: 'The Mortgage Works',
-    max_ltv: 75,
-    min_income: 25000,
-    self_employed_policy: 'BTL focus. No minimum income for experienced landlords.',
-    adverse_credit_stance: 'No adverse in last 2 years.',
+    self_employed_policy: '2 years accounts required. Will use average of last 2 years or latest year if lower. 1 year considered for some professionals.',
+    adverse_credit_stance: 'Strict. No CCJs or defaults in last 3 years. Small settled defaults over 3 years old may be considered.',
     updated_at: new Date().toISOString()
   },
   {
     name: 'Halifax',
     max_ltv: 95,
     min_income: 0,
-    self_employed_policy: 'Latest year or average of last 2. Very flexible.',
-    adverse_credit_stance: 'Credit score based. High tolerance for minor issues.',
+    self_employed_policy: 'Latest year figures used if increasing. 1 year trading history accepted. Very contractor friendly (day rate x 5 x 48).',
+    adverse_credit_stance: 'Credit score driven. High tolerance for minor historic issues if the overall score is strong.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'NatWest',
+    max_ltv: 95,
+    min_income: 0,
+    self_employed_policy: 'Average of last 2 years. 1 year considered for medical professionals, accountants, and solicitors.',
+    adverse_credit_stance: 'Case by case. Small defaults (<£500) ignored if satisfied over 12 months ago. No active CCJs.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Santander',
+    max_ltv: 95,
+    min_income: 0,
+    self_employed_policy: 'Average of last 2 years. Will use latest year if lower. 1 year history considered for some IT contractors.',
+    adverse_credit_stance: 'Considered if satisfied over 3 years ago and total value < £1000. No bankruptcy in last 6 years.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Barclays',
+    max_ltv: 95,
+    min_income: 20000,
+    self_employed_policy: '2 years trading history required. 100% of latest year used if increasing. Excellent for high-net-worth.',
+    adverse_credit_stance: 'Very strict. Clean credit for 6 years usually required. No tolerance for recent missed payments.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'HSBC',
+    max_ltv: 95,
+    min_income: 15000,
+    self_employed_policy: '2 years history required. Salary and dividends or net profit for sole traders. Average of last 2 years.',
+    adverse_credit_stance: 'Automated scoring. Very little manual override for adverse. Requires high credit score.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Virgin Money',
+    max_ltv: 95,
+    min_income: 0,
+    self_employed_policy: 'Latest year or average of last 2. 1 year trading considered for certain professions. Good for entrepreneurs.',
+    adverse_credit_stance: 'Flexible on satisfied defaults over 2 years old. No active payday loans in last 12 months.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Accord Mortgages',
+    max_ltv: 95,
+    min_income: 20000,
+    self_employed_policy: '2 years accounts required. Will consider 1 year with projection for qualified professionals.',
+    adverse_credit_stance: 'Strict. No CCJs or defaults in last 3 years. Satisfied defaults over 3 years considered on merit.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'The Mortgage Works',
+    max_ltv: 75,
+    min_income: 25000,
+    self_employed_policy: 'BTL focus. No minimum income for experienced landlords. 1 year trading for first-time landlords.',
+    adverse_credit_stance: 'No adverse in last 2 years. Older adverse considered on merit. BTL specific scoring.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Kensington Mortgages',
+    max_ltv: 90,
+    min_income: 0,
+    self_employed_policy: 'Specialist. 1 year trading history accepted. Uses profit before tax for limited company directors.',
+    adverse_credit_stance: 'Specialist lender. High tolerance for CCJs, defaults, and even recent missed payments. Rates reflect risk.',
+    is_specialist: true,
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Precise Mortgages',
+    max_ltv: 85,
+    min_income: 0,
+    self_employed_policy: '1 year trading history accepted. Good for complex income streams and multiple sources of income.',
+    adverse_credit_stance: 'Specialist. Considers heavy adverse including DMPs and historic bankruptcies. Tiered product range.',
+    is_specialist: true,
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Bluestone Mortgages',
+    max_ltv: 85,
+    min_income: 0,
+    self_employed_policy: '1 year trading history. Will consider affordability based on most recent 3 months bank statements.',
+    adverse_credit_stance: 'Specialist. No credit scoring—manual underwriting. Considers very recent adverse credit.',
+    is_specialist: true,
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Pepper Money',
+    max_ltv: 85,
+    min_income: 18000,
+    self_employed_policy: '1 year trading history. Uses latest year figures. Excellent for those with fluctuating income.',
+    adverse_credit_stance: 'Specialist. Does not use credit scores. Transparent criteria for defaults and CCJs.',
+    is_specialist: true,
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Skipton Building Society',
+    max_ltv: 95,
+    min_income: 0,
+    self_employed_policy: 'Average of last 2 years. 1 year considered for some. Good for Track Record (renters) mortgage.',
+    adverse_credit_stance: 'Moderate. Considers minor historic issues. No CCJs in last 2 years.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Leeds Building Society',
+    max_ltv: 95,
+    min_income: 0,
+    self_employed_policy: '2 years history required. Average of last 2 years. Good for Shared Ownership.',
+    adverse_credit_stance: 'Strict. Clean credit for last 3 years usually required.',
     updated_at: new Date().toISOString()
   }
 ];
@@ -50,11 +142,14 @@ interface CriteriaExplorerProps {
 
 export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade }: CriteriaExplorerProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [ltvFilter, setLtvFilter] = useState<number>(100);
+  const [incomeFilter, setIncomeFilter] = useState<number>(0);
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [selectedLender, setSelectedLender] = useState<Lender | null>(null);
   const [seeding, setSeeding] = useState(false);
+  const [showSpecialistOnly, setShowSpecialistOnly] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
 
   const isFree = userPlan === 'free';
@@ -120,8 +215,12 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade }: C
   };
 
   const filteredLenders = lenders.filter(l => 
-    l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.selfEmployedPolicy.toLowerCase().includes(searchTerm.toLowerCase())
+    (l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     l.selfEmployedPolicy.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     l.adverseCreditStance.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    l.maxLTV <= ltvFilter &&
+    l.minIncome >= incomeFilter &&
+    (!showSpecialistOnly || l.isSpecialist)
   );
 
   if (loading) {
@@ -139,8 +238,8 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade }: C
         <p className="text-archo-slate mt-2 font-serif italic">Search and compare {lenders.length}+ lender policies updated daily by AI.</p>
       </header>
 
-      <div className="flex gap-4 mb-10">
-        <div className="flex-1 relative">
+      <div className="flex flex-wrap gap-4 mb-10">
+        <div className="flex-1 min-w-[300px] relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-archo-brass" size={20} />
           <input
             type="text"
@@ -163,11 +262,59 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade }: C
             {isFree ? 'Pro AI Search' : 'AI Search'}
           </button>
         </div>
+        
+        <div className="flex gap-4 items-center bg-archo-cream border border-archo-brass/20 rounded-2xl px-6 py-2 shadow-sm">
+          <div className="flex flex-col">
+            <label className="text-[8px] font-bold uppercase tracking-widest text-archo-brass">Specialist Only</label>
+            <button
+              onClick={() => setShowSpecialistOnly(!showSpecialistOnly)}
+              className={`w-12 h-6 rounded-full transition-all relative mt-1 ${
+                showSpecialistOnly ? 'bg-archo-brass' : 'bg-archo-brass/20'
+              }`}
+            >
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${
+                showSpecialistOnly ? 'left-7' : 'left-1'
+              }`} />
+            </button>
+          </div>
+          <div className="w-px h-8 bg-archo-brass/10 mx-2" />
+          <div className="flex flex-col">
+            <label className="text-[8px] font-bold uppercase tracking-widest text-archo-brass">Max LTV: {ltvFilter}%</label>
+            <input 
+              type="range" 
+              min="60" 
+              max="100" 
+              step="5"
+              value={ltvFilter}
+              onChange={(e) => setLtvFilter(Number(e.target.value))}
+              className="w-32 accent-archo-brass"
+            />
+          </div>
+          <div className="w-px h-8 bg-archo-brass/10 mx-2" />
+          <div className="flex flex-col">
+            <label className="text-[8px] font-bold uppercase tracking-widest text-archo-brass">Min Income: £{incomeFilter.toLocaleString()}</label>
+            <input 
+              type="range" 
+              min="0" 
+              max="100000" 
+              step="5000"
+              value={incomeFilter}
+              onChange={(e) => setIncomeFilter(Number(e.target.value))}
+              className="w-32 accent-archo-brass"
+            />
+          </div>
+        </div>
+
         <button 
-          onClick={() => alert('Filtering options coming soon!')}
+          onClick={() => {
+            setSearchTerm('');
+            setLtvFilter(100);
+            setIncomeFilter(0);
+            setShowSpecialistOnly(false);
+          }}
           className="flex items-center gap-2 px-8 py-4 bg-archo-cream border border-archo-brass/20 rounded-2xl text-archo-ink font-serif font-bold hover:bg-archo-paper transition-all shadow-sm"
         >
-          <Filter size={18} className="text-archo-brass" /> Filters
+          Reset
         </button>
       </div>
 
@@ -198,8 +345,16 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade }: C
                   <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Last Updated: {lender.lastUpdated}</span>
                 </div>
               </div>
-              <div className="bg-archo-brass text-archo-cream px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] shadow-sm">
-                Verified
+              <div className="flex flex-col items-end gap-2">
+                <div className="bg-archo-brass text-archo-cream px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] shadow-sm">
+                  Verified
+                </div>
+                {lender.isSpecialist && (
+                  <div className="bg-archo-ink text-archo-brass-pale px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] shadow-sm flex items-center gap-1">
+                    <Sparkles size={10} />
+                    Specialist
+                  </div>
+                )}
               </div>
             </div>
 

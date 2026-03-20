@@ -64,6 +64,7 @@ export async function fetchLenders(): Promise<Lender[]> {
     minIncome: l.min_income,
     selfEmployedPolicy: l.self_employed_policy,
     adverseCreditStance: l.adverse_credit_stance,
+    isSpecialist: l.is_specialist,
     lastUpdated: new Date(l.updated_at || l.created_at).toLocaleDateString()
   })) as Lender[];
 }

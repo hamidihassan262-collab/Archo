@@ -15,7 +15,21 @@ const knowledgeBase = [
   { lender: 'NatWest', category: 'Adverse Credit', text: 'NatWest assesses adverse credit on a case-by-case basis. Small defaults (under £500) may be ignored if they are satisfied.' },
   { lender: 'The Mortgage Works', category: 'BTL', text: 'TMW focuses on Buy-to-Let. They have no minimum income requirement for experienced landlords, but require £25k for first-time landlords.' },
   { lender: 'Halifax', category: 'Self-Employed', text: 'Halifax is very flexible for self-employed. They often use the latest year\'s figures rather than an average if the business is growing.' },
-  { lender: 'Halifax', category: 'Adverse Credit', text: 'Halifax uses credit scoring. They have a high tolerance for minor historical credit issues if the overall score is strong.' }
+  { lender: 'Halifax', category: 'Adverse Credit', text: 'Halifax uses credit scoring. They have a high tolerance for minor historical credit issues if the overall score is strong.' },
+  { lender: 'Kensington Mortgages', category: 'Self-Employed', text: 'Kensington accepts 1 year trading history. They use profit before tax for limited company directors, which is highly beneficial for tax-efficient earners.' },
+  { lender: 'Kensington Mortgages', category: 'Adverse Credit', text: 'Kensington is a specialist lender. They accept CCJs and defaults even if registered within the last 12 months, provided they are not on the same credit line.' },
+  { lender: 'Precise Mortgages', category: 'Self-Employed', text: 'Precise accepts 1 year trading history. They are excellent for complex income streams, including multiple sources of income and variable pay.' },
+  { lender: 'Precise Mortgages', category: 'Adverse Credit', text: 'Precise considers heavy adverse credit, including Debt Management Plans (DMPs) and historic bankruptcies. They have a tiered product range based on the severity of the credit issues.' },
+  { lender: 'Bluestone Mortgages', category: 'Self-Employed', text: 'Bluestone accepts 1 year trading history. They will consider affordability based on the most recent 3 months of bank statements for some applicants.' },
+  { lender: 'Bluestone Mortgages', category: 'Adverse Credit', text: 'Bluestone uses manual underwriting and does not credit score. They consider very recent adverse credit, including defaults and CCJs registered in the last 6 months.' },
+  { lender: 'Pepper Money', category: 'Self-Employed', text: 'Pepper Money accepts 1 year trading history and uses the latest year\'s figures. This is excellent for businesses with fluctuating income.' },
+  { lender: 'Pepper Money', category: 'Adverse Credit', text: 'Pepper Money does not use credit scores. They have transparent criteria for defaults and CCJs, with specific products for different credit tiers.' },
+  { lender: 'Santander', category: 'Self-Employed', text: 'Santander usually requires 2 years of accounts. They use an average of the last 2 years or the latest year, whichever is lower.' },
+  { lender: 'Santander', category: 'Adverse Credit', text: 'Santander is generally conservative with adverse credit. They require CCJs and defaults to be satisfied for at least 3 years.' },
+  { lender: 'Barclays', category: 'Self-Employed', text: 'Barclays requires 2 years of trading history. They are good for high-net-worth individuals and complex corporate structures.' },
+  { lender: 'Barclays', category: 'Adverse Credit', text: 'Barclays has a low tolerance for adverse credit. They typically require a clean credit history for the last 6 years.' },
+  { lender: 'HSBC', category: 'Self-Employed', text: 'HSBC requires 2 years of accounts. They are very competitive on rates for those with a strong trading history and high income.' },
+  { lender: 'HSBC', category: 'Adverse Credit', text: 'HSBC is very strict on credit. Any significant adverse credit in the last 6 years will likely lead to a decline.' }
 ];
 
 async function upload() {

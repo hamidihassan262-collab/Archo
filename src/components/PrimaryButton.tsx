@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import BorderGlow from './BorderGlow';
 
 interface PrimaryButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -24,23 +25,29 @@ const PrimaryButton = ({
   ...props
 }: PrimaryButtonProps) => {
   return (
-    <BorderGlow
-      glowColor={glowColor}
-      colors={colors}
-      backgroundColor={backgroundColor}
-      borderRadius={borderRadius}
-      glowRadius={glowRadius}
-      animated={animated}
+    <motion.div
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.98 }}
       className="inline-block"
     >
-      <button
-        {...props}
-        className={`w-full h-full px-6 py-3 text-archo-brass-pale font-serif font-bold transition-all hover:text-archo-cream flex items-center justify-center gap-2 ${className}`}
-        style={{ background: 'transparent' }}
+      <BorderGlow
+        glowColor={glowColor}
+        colors={colors}
+        backgroundColor={backgroundColor}
+        borderRadius={borderRadius}
+        glowRadius={glowRadius}
+        animated={animated}
+        className="w-full h-full"
       >
-        {children}
-      </button>
-    </BorderGlow>
+        <button
+          {...props}
+          className={`w-full h-full px-6 py-3 text-archo-brass-pale font-serif font-bold transition-all hover:text-archo-cream flex items-center justify-center gap-2 ${className}`}
+          style={{ background: 'transparent' }}
+        >
+          {children}
+        </button>
+      </BorderGlow>
+    </motion.div>
   );
 };
 

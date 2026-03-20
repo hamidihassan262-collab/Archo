@@ -14,6 +14,7 @@ import Threads from './components/Threads';
 import SettingsModal from './components/SettingsModal';
 import Auth from './components/Auth';
 import Pricing from './components/Pricing';
+import GlobalSearch from './components/GlobalSearch';
 import TeamManagement from './components/TeamManagement';
 import LockedFeature from './components/LockedFeature';
 import { Bell, Search, HelpCircle } from 'lucide-react';
@@ -25,6 +26,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile>({
     id: '',
@@ -94,6 +96,17 @@ export default function App() {
     return () => {
       subscription.unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsGlobalSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const handleUpgrade = async (plan: UserPlan) => {
@@ -188,8 +201,14 @@ export default function App() {
             <input 
               type="text" 
               placeholder="Search cases, documents, or criteria..." 
-              className="bg-transparent border-none focus:outline-none text-sm w-64 placeholder:text-archo-muted"
+              className="bg-transparent border-none focus:outline-none text-sm w-64 placeholder:text-archo-muted cursor-pointer"
+              readOnly
+              onClick={() => setIsGlobalSearchOpen(true)}
             />
+            <div className="hidden md:flex items-center gap-1 px-1.5 py-0.5 bg-archo-brass/5 border border-archo-brass/10 rounded text-[10px] font-bold text-archo-brass">
+              <kbd>⌘</kbd>
+              <kbd>K</kbd>
+            </div>
           </div>
           
           <div className="flex items-center gap-6">
@@ -230,6 +249,13 @@ export default function App() {
       {isAuthModalOpen && (
         <Auth onClose={() => setIsAuthModalOpen(false)} />
       )}
+
+      <GlobalSearch 
+        isOpen={isGlobalSearchOpen} 
+        onClose={() => setIsGlobalSearchOpen(false)}
+        onSelectCase={(id) => setActiveTab('cases')}
+        onSelectLender={(id) => setActiveTab('criteria')}
+      />
     </div>
   );
 }

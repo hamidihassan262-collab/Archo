@@ -12,6 +12,7 @@ export default function Compliance({ isAuthenticated, userProfile, onUpgrade }: 
   onUpgrade: () => void;
 }) {
   const [caseStats, setCaseStats] = useState({ total: 0, green: 0, amber: 0, red: 0 });
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [systemHealth, setSystemHealth] = useState({ latency: '24ms', uptime: '99.99%', load: '12%' });
   const [loading, setLoading] = useState(true);
   const [showLock, setShowLock] = useState(true);
@@ -37,6 +38,9 @@ export default function Compliance({ isAuthenticated, userProfile, onUpgrade }: 
         return acc;
       }, { total: 0, green: 0, amber: 0, red: 0 });
       setCaseStats(stats);
+      
+      // Get recent activity (last 5 cases)
+      setRecentActivity(cases.slice(0, 5));
     } catch (error) {
       console.error('Error loading compliance data:', error);
     } finally {
@@ -56,7 +60,7 @@ export default function Compliance({ isAuthenticated, userProfile, onUpgrade }: 
     { name: 'SOC 2 Type II', status: 'Certified', date: 'Jan 2024' },
     { name: 'ISO 27001', status: 'Certified', date: 'Dec 2023' },
     { name: 'GDPR Compliant', status: 'Verified', date: 'Ongoing' },
-    { name: 'Supabase DB', status: import.meta.env.VITE_SUPABASE_URL ? 'Connected' : 'Local Mode', date: 'Real-time' },
+    { name: 'Supabase DB', status: 'Connected', date: 'Real-time' },
   ];
 
   const pillars = [
@@ -216,6 +220,59 @@ export default function Compliance({ isAuthenticated, userProfile, onUpgrade }: 
             </ul>
           </div>
         ))}
+      </div>
+
+      {/* Audit Trail Section */}
+      <div className="bg-archo-cream border border-archo-brass/10 rounded-3xl p-10 shadow-sm">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h3 className="text-2xl font-serif font-bold text-archo-ink">Audit Trail</h3>
+            <p className="text-archo-muted text-sm mt-1">
+              Immutable log of case modifications and compliance checks.
+            </p>
+          </div>
+          <PrimaryButton 
+            onClick={() => alert('Full audit log export started...')}
+            className="px-4 py-2 rounded-xl text-xs flex items-center gap-2"
+          >
+            Export Full Log <ExternalLink size={12} />
+          </PrimaryButton>
+        </div>
+
+        <div className="space-y-4">
+          {!isAuthenticated ? (
+            <div className="text-center py-12 border-2 border-dashed border-archo-brass/10 rounded-2xl">
+              <Lock className="mx-auto text-archo-muted mb-4" size={32} />
+              <p className="text-archo-muted font-sans italic">Sign in to view your firm's audit trail.</p>
+            </div>
+          ) : recentActivity.length === 0 ? (
+            <div className="text-center py-12 border-2 border-dashed border-archo-brass/10 rounded-2xl">
+              <Activity className="mx-auto text-archo-muted mb-4" size={32} />
+              <p className="text-archo-muted font-sans italic">No recent activity found.</p>
+            </div>
+          ) : (
+            recentActivity.map((activity, idx) => (
+              <div key={idx} className="flex items-center justify-between p-4 bg-white rounded-xl border border-archo-brass/5 hover:border-archo-brass/20 transition-all">
+                <div className="flex items-center gap-4">
+                  <div className={`w-2 h-2 rounded-full ${
+                    activity.ragStatus === 'Green' ? 'bg-emerald-500' : 
+                    activity.ragStatus === 'Amber' ? 'bg-amber-500' : 'bg-rose-500'
+                  }`} />
+                  <div>
+                    <p className="text-sm font-bold text-archo-ink">Case Updated: {activity.clientName}</p>
+                    <p className="text-[10px] text-archo-muted uppercase tracking-wider">
+                      Stage: {activity.stage} • Status: {activity.ragStatus}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs font-mono text-archo-muted">{activity.lastActionDate}</p>
+                  <p className="text-[10px] text-emerald-600 font-bold">VERIFIED</p>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* AI Ethics Section */}

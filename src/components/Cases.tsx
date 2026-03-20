@@ -18,6 +18,8 @@ export default function Cases({ requireAuth, userProfile, onUpgrade }: CasesProp
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('All');
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
+  const [draggedCaseId, setDraggedCaseId] = useState<string | null>(null);
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -207,6 +209,35 @@ export default function Cases({ requireAuth, userProfile, onUpgrade }: CasesProp
     }
   };
 
+  const handleUpdateCaseStage = async (id: string, newStage: CaseStage) => {
+    try {
+      const { error } = await supabase
+        .from('cases')
+        .update({ stage: newStage.toLowerCase() })
+        .eq('id', id);
+      if (error) throw error;
+      // loadCases will be called by realtime subscription
+    } catch (error: any) {
+      alert(error.message || 'Failed to update stage');
+    }
+  };
+
+  const handleDragStart = (id: string) => {
+    setDraggedCaseId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, targetStage: CaseStage) => {
+    e.preventDefault();
+    if (draggedCaseId) {
+      handleUpdateCaseStage(draggedCaseId, targetStage);
+      setDraggedCaseId(null);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       clientName: '',
@@ -254,17 +285,33 @@ export default function Cases({ requireAuth, userProfile, onUpgrade }: CasesProp
           <h2 className="text-4xl font-serif font-bold text-archo-ink tracking-tight">All Cases</h2>
           <p className="text-archo-slate mt-2 font-serif italic">Manage and track your entire mortgage portfolio.</p>
         </div>
-        <PrimaryButton 
-          onClick={() => {
-            requireAuth(() => {
-              resetForm();
-              setShowAddModal(true);
-            });
-          }}
-          className="px-8 py-3 rounded-full text-sm flex items-center gap-2"
-        >
-          <Plus size={18} /> New Case
-        </PrimaryButton>
+        <div className="flex gap-4">
+          <div className="bg-archo-cream border border-archo-brass/20 rounded-full p-1 flex shadow-sm">
+            <button 
+              onClick={() => setViewMode('table')}
+              className={`px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${viewMode === 'table' ? 'bg-archo-ink text-archo-brass-pale shadow-md' : 'text-archo-muted hover:text-archo-ink'}`}
+            >
+              Table
+            </button>
+            <button 
+              onClick={() => setViewMode('kanban')}
+              className={`px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest transition-all ${viewMode === 'kanban' ? 'bg-archo-ink text-archo-brass-pale shadow-md' : 'text-archo-muted hover:text-archo-ink'}`}
+            >
+              Kanban
+            </button>
+          </div>
+          <PrimaryButton 
+            onClick={() => {
+              requireAuth(() => {
+                resetForm();
+                setShowAddModal(true);
+              });
+            }}
+            className="px-8 py-3 rounded-full text-sm flex items-center gap-2"
+          >
+            <Plus size={18} /> New Case
+          </PrimaryButton>
+        </div>
       </header>
 
       {/* Filters Bar */}
@@ -295,97 +342,159 @@ export default function Cases({ requireAuth, userProfile, onUpgrade }: CasesProp
       </div>
 
       {/* Cases List */}
-      <div className="bg-archo-cream rounded-3xl border border-archo-brass/10 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-archo-paper border-b border-archo-brass/10">
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Client Name</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Stage</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Property Value</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Loan / LTV</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Status</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Created</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Assigned To</th>
-                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-archo-brass/5">
-              {filteredCases.map((c) => (
-                <tr 
-                  key={c.id} 
-                  onClick={() => requireAuth(() => openEditModal(c))}
-                  className="hover:bg-archo-paper transition-colors cursor-pointer group"
-                >
-                  <td className="px-6 py-5">
-                    <p className="font-serif font-bold text-archo-ink">{c.clientName}</p>
-                    <p className="text-[10px] text-archo-muted uppercase tracking-widest mt-1">Ref: {c.id.slice(0, 8)}</p>
-                  </td>
-                  <td className="px-6 py-5">
-                    <span className="px-3 py-1 bg-archo-brass/10 text-archo-brass rounded-full text-[10px] font-bold uppercase tracking-wider border border-archo-brass/20">
-                      {c.stage}
-                    </span>
-                  </td>
-                  <td className="px-6 py-5">
-                    <p className="font-serif font-bold text-archo-ink">£{c.propertyValue.toLocaleString()}</p>
-                  </td>
-                  <td className="px-6 py-5">
-                    <p className="font-serif font-bold text-archo-ink">£{c.loanAmount.toLocaleString()}</p>
-                    <p className="text-[10px] text-archo-muted font-mono">{c.ltv}% LTV</p>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2.5 h-2.5 rounded-full ${
+      {viewMode === 'table' ? (
+        <div className="bg-archo-cream rounded-3xl border border-archo-brass/10 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-archo-paper border-b border-archo-brass/10">
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Client Name</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Stage</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Property Value</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Loan / LTV</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Status</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Created</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Assigned To</th>
+                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-archo-brass">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-archo-brass/5">
+                {filteredCases.map((c) => (
+                  <tr 
+                    key={c.id} 
+                    onClick={() => requireAuth(() => openEditModal(c))}
+                    className="hover:bg-archo-paper transition-colors cursor-pointer group"
+                  >
+                    <td className="px-6 py-5">
+                      <p className="font-serif font-bold text-archo-ink">{c.clientName}</p>
+                      <p className="text-[10px] text-archo-muted uppercase tracking-widest mt-1">Ref: {c.id.slice(0, 8)}</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className="px-3 py-1 bg-archo-brass/10 text-archo-brass rounded-full text-[10px] font-bold uppercase tracking-wider border border-archo-brass/20">
+                        {c.stage}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="font-serif font-bold text-archo-ink">£{c.propertyValue.toLocaleString()}</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <p className="font-serif font-bold text-archo-ink">£{c.loanAmount.toLocaleString()}</p>
+                      <p className="text-[10px] text-archo-muted font-mono">{c.ltv}% LTV</p>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2.5 h-2.5 rounded-full ${
+                          c.ragStatus === 'Green' ? 'bg-emerald-600' : 
+                          c.ragStatus === 'Amber' ? 'bg-archo-brass' : 'bg-red-600'
+                        }`} />
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-archo-slate">{c.ragStatus}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2 text-archo-muted">
+                        <Calendar size={12} className="text-archo-brass/60" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">
+                          {new Date((c as any).createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-archo-ink flex items-center justify-center text-[8px] text-archo-brass-pale font-serif font-bold">
+                          {(c as any).assignedTo?.[0] || 'H'}
+                        </div>
+                        <span className="text-xs text-archo-slate">{(c as any).assignedTo || 'Hassan Hamidi'}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); requireAuth(() => openEditModal(c)); }}
+                          className="p-2 text-archo-slate hover:text-archo-brass transition-colors"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        <button 
+                          onClick={(e) => requireAuth(() => handleDeleteCase(c.id, e))}
+                          className="p-2 text-archo-slate hover:text-red-600 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {filteredCases.length === 0 && (
+            <div className="p-20 text-center">
+              <Briefcase size={48} className="mx-auto text-archo-brass/20 mb-4" />
+              <p className="text-archo-slate font-serif italic">No cases found matching your criteria.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide">
+          {STAGES.map(stage => (
+            <div 
+              key={stage} 
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, stage)}
+              className="flex-shrink-0 w-80 bg-archo-paper/50 rounded-3xl border border-archo-brass/10 flex flex-col min-h-[600px]"
+            >
+              <div className="p-6 border-b border-archo-brass/10 flex justify-between items-center">
+                <h3 className="text-xs font-bold uppercase tracking-[0.25em] text-archo-ink">{stage}</h3>
+                <span className="bg-archo-brass/10 text-archo-brass px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                  {filteredCases.filter(c => c.stage === stage).length}
+                </span>
+              </div>
+              <div className="p-4 flex-1 space-y-4">
+                {filteredCases.filter(c => c.stage === stage).map(c => (
+                  <motion.div
+                    key={c.id}
+                    layoutId={c.id}
+                    draggable
+                    onDragStart={() => handleDragStart(c.id)}
+                    onClick={() => requireAuth(() => openEditModal(c))}
+                    className="bg-archo-cream p-6 rounded-2xl border border-archo-brass/5 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className={`w-2 h-2 rounded-full ${
                         c.ragStatus === 'Green' ? 'bg-emerald-600' : 
                         c.ragStatus === 'Amber' ? 'bg-archo-brass' : 'bg-red-600'
                       }`} />
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-archo-slate">{c.ragStatus}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-2 text-archo-muted">
-                      <Calendar size={12} className="text-archo-brass/60" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">
-                        {new Date((c as any).createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-archo-ink flex items-center justify-center text-[8px] text-archo-brass-pale font-serif font-bold">
-                        {(c as any).assignedTo?.[0] || 'H'}
-                      </div>
-                      <span className="text-xs text-archo-slate">{(c as any).assignedTo || 'Hassan Hamidi'}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-5">
-                    <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
                         onClick={(e) => { e.stopPropagation(); requireAuth(() => openEditModal(c)); }}
-                        className="p-2 text-archo-slate hover:text-archo-brass transition-colors"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-archo-muted hover:text-archo-brass"
                       >
-                        <Edit3 size={16} />
-                      </button>
-                      <button 
-                        onClick={(e) => requireAuth(() => handleDeleteCase(c.id, e))}
-                        className="p-2 text-archo-slate hover:text-red-600 transition-colors"
-                      >
-                        <Trash2 size={16} />
+                        <Edit3 size={14} />
                       </button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <h4 className="font-serif font-bold text-archo-ink mb-1">{c.clientName}</h4>
+                    <p className="text-[10px] text-archo-muted uppercase tracking-widest mb-4">£{c.loanAmount.toLocaleString()} @ {c.ltv}% LTV</p>
+                    
+                    <div className="flex justify-between items-center pt-4 border-t border-archo-brass/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full bg-archo-ink flex items-center justify-center text-[6px] text-archo-brass-pale font-serif font-bold">
+                          {(c as any).assignedTo?.[0] || 'H'}
+                        </div>
+                        <span className="text-[10px] text-archo-slate">{(c as any).assignedTo || 'Hassan Hamidi'}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-archo-muted">
+                        <Calendar size={10} />
+                        <span className="text-[8px] font-bold uppercase tracking-tighter">
+                          {new Date((c as any).createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                        </span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
-        {filteredCases.length === 0 && (
-          <div className="p-20 text-center">
-            <Briefcase size={48} className="mx-auto text-archo-brass/20 mb-4" />
-            <p className="text-archo-slate font-serif italic">No cases found matching your criteria.</p>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Modals */}
       <AnimatePresence>

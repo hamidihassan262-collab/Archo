@@ -41,5 +41,6 @@ export interface Lender {
   minIncome: number;
   selfEmployedPolicy: string;
   adverseCreditStance: string;
+  isSpecialist?: boolean;
   lastUpdated: string;
 }
