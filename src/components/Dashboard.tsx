@@ -20,6 +20,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade }: {
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [selectedCase, setSelectedCase] = useState<MortgageCase | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [showLock, setShowLock] = useState(true);
   const [newCase, setNewCase] = useState({ 
     clientName: '', 
     propertyValue: '', 
@@ -247,10 +248,11 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade }: {
             ))}
           </div>
 
-          {userProfile?.plan === 'free' && (
+          {userProfile?.plan === 'free' && showLock && (
             <LockedFeature 
               featureName="Detailed Case Analytics"
               onUpgrade={onUpgrade}
+              onClose={() => setShowLock(false)}
             />
           )}
         </div>

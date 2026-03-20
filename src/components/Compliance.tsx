@@ -14,6 +14,7 @@ export default function Compliance({ isAuthenticated, userProfile, onUpgrade }: 
   const [caseStats, setCaseStats] = useState({ total: 0, green: 0, amber: 0, red: 0 });
   const [systemHealth, setSystemHealth] = useState({ latency: '24ms', uptime: '99.99%', load: '12%' });
   const [loading, setLoading] = useState(true);
+  const [showLock, setShowLock] = useState(true);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -186,10 +187,11 @@ export default function Compliance({ isAuthenticated, userProfile, onUpgrade }: 
           </div>
         </div>
 
-        {userProfile?.plan === 'free' && (
+        {userProfile?.plan === 'free' && showLock && (
           <LockedFeature 
             featureName="Compliance Dashboard"
             onUpgrade={onUpgrade}
+            onClose={() => setShowLock(false)}
           />
         )}
       </div>
