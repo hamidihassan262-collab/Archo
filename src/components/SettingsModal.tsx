@@ -1,26 +1,28 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, LogOut, User, Shield, Save } from 'lucide-react';
-import { signOut } from '../../supabaseClient';
+import { supabase } from '../lib/supabase';
+import PrimaryButton from './PrimaryButton';
+import { UserProfile, UserRole } from '../types';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  userProfile: { name: string; role: string; email: string };
-  onUpdateProfile: (name: string, role: string) => void;
+  userProfile: UserProfile;
+  onUpdateProfile: (full_name: string, role: string) => void;
 }
 
 export default function SettingsModal({ isOpen, onClose, userProfile, onUpdateProfile }: SettingsModalProps) {
-  const [name, setName] = useState(userProfile.name);
+  const [fullName, setFullName] = useState(userProfile.full_name || '');
   const [role, setRole] = useState(userProfile.role);
 
   const handleSignOut = async () => {
-    await signOut();
+    await supabase.auth.signOut();
     window.location.reload(); // Simple redirect/reload to trigger auth state change
   };
 
   const handleSave = () => {
-    onUpdateProfile(name, role);
+    onUpdateProfile(fullName, role);
     onClose();
   };
 
@@ -70,8 +72,8 @@ export default function SettingsModal({ isOpen, onClose, userProfile, onUpdatePr
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-archo-brass mb-1.5">Display Name</label>
                   <input 
                     type="text" 
-                    value={name}
-                    onChange={e => setName(e.target.value)}
+                    value={fullName}
+                    onChange={e => setFullName(e.target.value)}
                     className="w-full bg-archo-paper border border-archo-brass/20 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-archo-brass/10 text-archo-ink font-serif font-bold"
                   />
                 </div>
@@ -81,19 +83,19 @@ export default function SettingsModal({ isOpen, onClose, userProfile, onUpdatePr
                   <input 
                     type="text" 
                     value={role}
-                    onChange={e => setRole(e.target.value)}
+                    onChange={e => setRole(e.target.value as UserRole)}
                     className="w-full bg-archo-paper border border-archo-brass/20 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-archo-brass/10 text-archo-ink font-serif font-bold"
                   />
                 </div>
               </div>
 
               <div className="pt-6 border-t border-archo-brass/10 flex flex-col gap-4">
-                <button 
+                <PrimaryButton 
                   onClick={handleSave}
-                  className="w-full py-4 bg-archo-brass text-archo-cream rounded-2xl font-serif font-bold shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all flex items-center justify-center gap-2"
+                  className="w-full py-4 rounded-2xl flex items-center justify-center gap-2"
                 >
                   <Save size={18} /> Save Changes
-                </button>
+                </PrimaryButton>
                 
                 <button 
                   onClick={handleSignOut}

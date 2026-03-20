@@ -13,60 +13,79 @@ import Compliance from './components/Compliance';
 import Threads from './components/Threads';
 import SettingsModal from './components/SettingsModal';
 import Auth from './components/Auth';
+import Pricing from './components/Pricing';
+import TeamManagement from './components/TeamManagement';
+import LockedFeature from './components/LockedFeature';
 import { Bell, Search, HelpCircle } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import { UserProfile, UserPlan, UserRole } from './types';
+import { getUserProfile, updatePlan } from './services/pricingService';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isAuthPage, setIsAuthPage] = useState(true);
-  const [userProfile, setUserProfile] = useState({
-    name: 'Guest User',
-    role: 'Broker',
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    id: '',
+    plan: 'free',
+    company_id: null,
+    role: 'broker',
+    daily_message_count: 0,
+    weekly_message_count: 0,
+    last_message_date: null,
+    full_name: 'Guest User',
     email: ''
   });
 
+  const requireAuth = (callback: () => void) => {
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true);
+    } else {
+      callback();
+    }
+  };
+
+  const fetchProfile = async (userId: string, email: string) => {
+    const profile = await getUserProfile(userId);
+    if (profile) {
+      setUserProfile({
+        ...profile,
+        email,
+        full_name: profile.full_name || 'Hassan Hamidi'
+      });
+    }
+  };
+
   useEffect(() => {
     const initAuth = async () => {
-      // Check if we've already forced a logout in this session
-      const hasForcedLogout = sessionStorage.getItem('archo_forced_logout');
-      
-      if (!hasForcedLogout) {
-        await supabase.auth.signOut();
-        sessionStorage.setItem('archo_forced_logout', 'true');
-        setIsAuthPage(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await fetchProfile(user.id, user.email || '');
+        setIsAuthenticated(true);
       } else {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          setUserProfile({
-            name: user.user_metadata?.full_name || 'Hassan Hamidi',
-            role: user.user_metadata?.role || 'Independent Broker',
-            email: user.email || ''
-          });
-          setIsAuthPage(false);
-        } else {
-          setIsAuthPage(true);
-        }
+        setIsAuthenticated(false);
       }
     };
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
-        console.log('Logged in as:', session.user.email);
-        setUserProfile({
-          name: session.user.user_metadata?.full_name || 'Hassan Hamidi',
-          role: session.user.user_metadata?.role || 'Independent Broker',
-          email: session.user.email || ''
-        });
-        setIsAuthPage(false);
+        fetchProfile(session.user.id, session.user.email || '');
+        setIsAuthenticated(true);
+        setIsAuthModalOpen(false);
       }
       if (event === 'SIGNED_OUT') {
-        console.log('Logged out');
-        setIsAuthPage(true);
+        setIsAuthenticated(false);
         setUserProfile({
-          name: 'Guest User',
-          role: 'Broker',
+          id: '',
+          plan: 'free',
+          company_id: null,
+          role: 'broker',
+          daily_message_count: 0,
+          weekly_message_count: 0,
+          last_message_date: null,
+          full_name: 'Guest User',
           email: ''
         });
       }
@@ -77,22 +96,55 @@ export default function App() {
     };
   }, []);
 
-  if (isAuthPage) {
-    return <Auth />;
-  }
+  const handleUpgrade = async (plan: UserPlan) => {
+    if (!isAuthenticated) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+    const success = await updatePlan(userProfile.id, plan);
+    if (success) {
+      setUserProfile(prev => ({ ...prev, plan }));
+      alert(`Successfully upgraded to ${plan.toUpperCase()}!`);
+      setActiveTab('dashboard');
+    }
+  };
 
   const renderContent = () => {
+    const isFree = userProfile.plan === 'free';
+
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard 
+          requireAuth={requireAuth} 
+          userProfile={userProfile}
+          onUpgrade={() => setActiveTab('pricing')}
+        />;
       case 'cases':
-        return <Cases />;
+        return <Cases 
+          requireAuth={requireAuth} 
+          userProfile={userProfile}
+          onUpgrade={() => setActiveTab('pricing')}
+        />;
       case 'criteria':
-        return <CriteriaExplorer />;
+        return <CriteriaExplorer requireAuth={requireAuth} userPlan={userProfile.plan} onUpgrade={() => setActiveTab('pricing')} />;
       case 'copilot':
-        return <CopilotChat />;
+        return <CopilotChat requireAuth={requireAuth} userProfile={userProfile} onUpgrade={() => setActiveTab('pricing')} />;
+      case 'compliance':
+        return <Compliance 
+          isAuthenticated={isAuthenticated} 
+          userProfile={userProfile}
+          onUpgrade={() => setActiveTab('pricing')}
+        />;
+      case 'team':
+        return <TeamManagement userProfile={userProfile} />;
+      case 'pricing':
+        return <Pricing currentPlan={userProfile.plan} onUpgrade={handleUpgrade} />;
       case 'settings':
-        return <Compliance />;
+        return <Compliance 
+          isAuthenticated={isAuthenticated} 
+          userProfile={userProfile}
+          onUpgrade={() => setActiveTab('pricing')}
+        />;
       default:
         return (
           <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] text-archo-slate relative z-10">
@@ -114,6 +166,7 @@ export default function App() {
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         onProfileClick={() => setIsSettingsOpen(true)}
+        onSignInClick={() => setIsAuthModalOpen(true)}
         userProfile={userProfile}
       />
       
@@ -171,8 +224,12 @@ export default function App() {
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
         userProfile={userProfile}
-        onUpdateProfile={(name, role) => setUserProfile(prev => ({ ...prev, name, role }))}
+        onUpdateProfile={(full_name, role) => setUserProfile(prev => ({ ...prev, full_name, role: role as UserRole }))}
       />
+
+      {isAuthModalOpen && (
+        <Auth onClose={() => setIsAuthModalOpen(false)} />
+      )}
     </div>
   );
 }

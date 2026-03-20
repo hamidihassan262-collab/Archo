@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { LogIn, UserPlus, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, ArrowRight, AlertCircle, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import PrimaryButton from './PrimaryButton';
 
-export default function Auth() {
+interface AuthProps {
+  onClose?: () => void;
+}
+
+export default function Auth({ onClose }: AuthProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,7 +56,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-archo-paper p-4 relative overflow-hidden">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-archo-ink/60 backdrop-blur-sm p-4 overflow-hidden">
       {/* Background elements */}
       <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-archo-brass blur-[120px]" />
@@ -59,10 +64,19 @@ export default function Auth() {
       </div>
 
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
         className="w-full max-w-md bg-archo-cream rounded-3xl p-8 shadow-2xl border border-archo-brass/20 relative z-10"
       >
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="absolute top-6 right-6 text-archo-slate hover:text-archo-brass transition-colors p-2 hover:bg-archo-brass/5 rounded-full"
+          >
+            <X size={20} />
+          </button>
+        )}
+
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-archo-brass rounded-2xl flex items-center justify-center text-archo-cream mx-auto mb-4 shadow-lg">
             {isLogin ? <LogIn size={32} /> : <UserPlus size={32} />}
@@ -120,14 +134,14 @@ export default function Auth() {
             </div>
           </div>
 
-          <button 
+          <PrimaryButton 
             disabled={loading}
             type="submit"
-            className="w-full py-4 bg-archo-brass text-archo-cream rounded-2xl font-serif font-bold shadow-lg hover:shadow-xl hover:scale-[1.01] transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:scale-100"
+            className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
             {!loading && <ArrowRight size={18} />}
-          </button>
+          </PrimaryButton>
         </form>
 
         <div className="mt-8 pt-6 border-t border-archo-brass/10 text-center">

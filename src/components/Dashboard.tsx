@@ -1,15 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { MortgageCase, CaseStage } from '../types';
-import { MoreHorizontal, Calendar, ArrowRight, Plus, X, Edit3, Trash2 } from 'lucide-react';
+import { MortgageCase, CaseStage, UserProfile } from '../types';
+import { MoreHorizontal, Calendar, ArrowRight, Plus, X, Edit3, Trash2, AlertCircle, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
+import PrimaryButton from './PrimaryButton';
+import BorderGlow from './BorderGlow';
+import LockedFeature from './LockedFeature';
 
 const STAGES: CaseStage[] = ['Lead', 'Fact-Find', 'Sourcing', 'Application', 'Offer', 'Completion'];
 
-export default function Dashboard() {
+export default function Dashboard({ requireAuth, userProfile, onUpgrade }: { 
+  requireAuth: (cb: () => void) => void;
+  userProfile: UserProfile | null;
+  onUpgrade: () => void;
+}) {
   const [cases, setCases] = useState<MortgageCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const [selectedCase, setSelectedCase] = useState<MortgageCase | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [newCase, setNewCase] = useState({ 
@@ -96,6 +104,13 @@ export default function Dashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setModalError('You must be logged in to create a case.');
+        return;
+      }
+
+      // Check case limit for free users
+      if (userProfile?.plan === 'free' && cases.length >= 3) {
+        setShowAddModal(false);
+        setShowLimitModal(true);
         return;
       }
 
@@ -187,13 +202,59 @@ export default function Dashboard() {
           <h2 className="text-4xl font-serif font-bold text-archo-ink tracking-tight">Case Pipeline</h2>
           <p className="text-archo-slate mt-2 font-serif italic">You have {cases.length} active cases this month.</p>
         </div>
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="bg-archo-brass text-archo-cream px-8 py-3 rounded-full font-serif font-bold text-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex items-center gap-2"
-        >
-          New Case <ArrowRight size={16} />
-        </button>
+        <div className="flex items-center gap-4">
+          <PrimaryButton 
+            onClick={() => requireAuth(() => {
+              if (userProfile?.plan === 'free' && cases.length >= 3) {
+                setShowLimitModal(true);
+              } else {
+                setShowAddModal(true);
+              }
+            })}
+            className="px-8 py-3 rounded-full text-sm flex items-center gap-2"
+          >
+            New Case <ArrowRight size={16} />
+          </PrimaryButton>
+        </div>
       </header>
+
+      {/* Analytics Gating */}
+      <div className="mb-12">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-[10px] font-bold uppercase tracking-[0.25em] text-archo-brass">Performance Analytics</h3>
+          {userProfile?.plan === 'free' && (
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-archo-gold uppercase tracking-wider bg-archo-gold/10 px-3 py-1 rounded-full border border-archo-gold/20">
+              <Lock size={10} /> Pro Feature
+            </span>
+          )}
+        </div>
+        
+        <div className="relative">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[
+              { label: 'Total Volume', value: '£4.2M', trend: '+12%' },
+              { label: 'Conversion Rate', value: '68%', trend: '+5%' },
+              { label: 'Avg. Case Time', value: '18 Days', trend: '-2 Days' },
+              { label: 'Pipeline Value', value: '£12.8M', trend: '+8%' }
+            ].map((stat, i) => (
+              <div key={i} className="bg-archo-paper border border-archo-brass/10 rounded-2xl p-6">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-archo-muted mb-2">{stat.label}</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-serif font-bold text-archo-ink">{stat.value}</span>
+                  <span className="text-[10px] font-bold text-emerald-600">{stat.trend}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {userProfile?.plan === 'free' && (
+            <LockedFeature 
+              featureName="Detailed Case Analytics"
+              onUpgrade={onUpgrade}
+            />
+          )}
+        </div>
+      </div>
 
       <div className="flex gap-8 overflow-x-auto pb-8 min-h-[calc(100vh-250px)]">
         {STAGES.map((stage) => (
@@ -207,11 +268,20 @@ export default function Dashboard() {
             
             <div className="flex flex-col gap-4">
               {cases.filter(c => c.stage === stage).map((item) => (
+                <BorderGlow
+                  key={item.id}
+                  glowColor="45 50 50"
+                  colors={['#8B732E', '#B59410', '#D4AF37']}
+                  backgroundColor="#FDFCF0"
+                  borderRadius={16}
+                  glowRadius={20}
+                  glowIntensity={0.2}
+                  className="w-full"
+                >
                   <motion.div
                     layoutId={item.id}
-                    key={item.id}
-                    onClick={() => setSelectedCase(item)}
-                    className="case-card group relative overflow-hidden"
+                    onClick={() => requireAuth(() => setSelectedCase(item))}
+                    className="case-card group relative overflow-hidden h-full"
                     whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(139, 115, 46, 0.1)" }}
                   >
                     <div className="flex justify-between items-start mb-4">
@@ -223,7 +293,7 @@ export default function Dashboard() {
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteCase(item.id);
+                            requireAuth(() => handleDeleteCase(item.id));
                           }}
                           className="text-archo-muted hover:text-red-600"
                         >
@@ -251,17 +321,34 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </motion.div>
-              ))}
+              </BorderGlow>
+            ))}
               
-              <button 
-                onClick={() => {
-                  setNewCase(prev => ({ ...prev, stage }));
-                  setShowAddModal(true);
-                }}
-                className="w-full py-4 border border-dashed border-archo-brass/30 rounded-2xl text-archo-brass hover:bg-archo-brass/5 hover:border-archo-brass transition-all text-[10px] font-bold uppercase tracking-[0.2em]"
+              <BorderGlow
+                glowColor="45 50 50"
+                colors={['#8B732E', '#B59410', '#D4AF37']}
+                backgroundColor="transparent"
+                borderRadius={16}
+                glowRadius={20}
+                glowIntensity={0.4}
+                className="w-full"
               >
-                + Add Case
-              </button>
+                <button 
+                  onClick={() => {
+                    requireAuth(() => {
+                      if (userProfile?.plan === 'free' && cases.length >= 3) {
+                        setShowLimitModal(true);
+                      } else {
+                        setNewCase(prev => ({ ...prev, stage }));
+                        setShowAddModal(true);
+                      }
+                    });
+                  }}
+                  className="w-full py-4 border border-dashed border-archo-brass/30 rounded-2xl text-archo-brass hover:bg-archo-brass/5 hover:border-archo-brass transition-all text-[10px] font-bold uppercase tracking-[0.2em]"
+                >
+                  + Add Case
+                </button>
+              </BorderGlow>
             </div>
           </div>
         ))}
@@ -343,9 +430,11 @@ export default function Dashboard() {
               </div>
 
               <div className="p-8 bg-archo-paper border-t border-archo-brass/10 flex gap-4">
-                <button className="flex-1 py-4 bg-archo-ink text-archo-brass-pale rounded-2xl font-serif font-bold hover:bg-archo-brass hover:text-archo-cream transition-all flex items-center justify-center gap-2">
+                <PrimaryButton 
+                  className="flex-1 py-4 rounded-2xl flex items-center justify-center gap-2"
+                >
                   <Edit3 size={18} /> Edit Case
-                </button>
+                </PrimaryButton>
                 <button 
                   onClick={() => handleDeleteCase(selectedCase.id)}
                   className="px-6 py-4 border border-red-200 text-red-600 rounded-2xl font-serif font-bold hover:bg-red-50 transition-all"
@@ -358,8 +447,45 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      {/* Add Case Modal */}
+      {/* Modals */}
       <AnimatePresence>
+        {showLimitModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLimitModal(false)}
+              className="absolute inset-0 bg-archo-ink/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-archo-cream w-full max-w-md rounded-3xl p-8 shadow-2xl border border-archo-brass/20"
+            >
+              <div className="w-16 h-16 bg-archo-gold/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <AlertCircle size={32} className="text-archo-gold" />
+              </div>
+              <h3 className="text-2xl font-serif font-bold text-archo-ink text-center mb-4">Case Limit Reached</h3>
+              <p className="text-archo-slate text-center mb-8 leading-relaxed">
+                Free users are limited to 3 active cases. Upgrade to Pro for unlimited cases and advanced pipeline management.
+              </p>
+              <div className="flex flex-col gap-3">
+                <PrimaryButton onClick={() => { setShowLimitModal(false); onUpgrade(); }} className="w-full py-4 rounded-xl">
+                  Upgrade to Pro
+                </PrimaryButton>
+                <button 
+                  onClick={() => setShowLimitModal(false)}
+                  className="w-full py-4 text-archo-muted font-bold hover:text-archo-ink transition-colors"
+                >
+                  Maybe Later
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div 
@@ -480,12 +606,12 @@ export default function Dashboard() {
                   >
                     Cancel
                   </button>
-                  <button 
+                  <PrimaryButton 
                     type="submit"
-                    className="flex-1 py-3 bg-archo-brass text-archo-cream rounded-xl font-serif font-bold shadow-lg hover:shadow-xl transition-all"
+                    className="flex-1 py-3 rounded-xl"
                   >
                     Create Case
-                  </button>
+                  </PrimaryButton>
                 </div>
               </form>
             </motion.div>

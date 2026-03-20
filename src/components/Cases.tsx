@@ -1,12 +1,19 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { MortgageCase, CaseStage } from '../types';
-import { Search, Filter, Plus, MoreVertical, Calendar, User, Trash2, Edit3, X, ArrowRight } from 'lucide-react';
+import { MortgageCase, CaseStage, UserProfile } from '../types';
+import { Search, Filter, Plus, MoreVertical, Calendar, User, Trash2, Edit3, X, ArrowRight, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
+import PrimaryButton from './PrimaryButton';
 
 const STAGES: CaseStage[] = ['Lead', 'Fact-Find', 'Sourcing', 'Application', 'Offer', 'Completion'];
 
-export default function Cases() {
+interface CasesProps {
+  requireAuth: (cb: () => void) => void;
+  userProfile: UserProfile;
+  onUpgrade: () => void;
+}
+
+export default function Cases({ requireAuth, userProfile, onUpgrade }: CasesProps) {
   const [cases, setCases] = useState<MortgageCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,10 +22,9 @@ export default function Cases() {
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
   const [selectedCase, setSelectedCase] = useState<MortgageCase | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
-
-  // Form states
   const [formData, setFormData] = useState({
     clientName: '',
     propertyValue: '',
@@ -28,6 +34,9 @@ export default function Cases() {
     assignedTo: 'Hassan Hamidi',
     stage: 'Lead' as CaseStage
   });
+
+  const isFree = userProfile.plan === 'free';
+  const caseLimit = 3;
 
   const loadCases = useCallback(async () => {
     try {
@@ -98,6 +107,13 @@ export default function Cases() {
   const handleAddCase = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
+
+    if (isFree && cases.length >= caseLimit) {
+      setShowAddModal(false);
+      setShowLimitModal(true);
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -238,15 +254,17 @@ export default function Cases() {
           <h2 className="text-4xl font-serif font-bold text-archo-ink tracking-tight">All Cases</h2>
           <p className="text-archo-slate mt-2 font-serif italic">Manage and track your entire mortgage portfolio.</p>
         </div>
-        <button 
+        <PrimaryButton 
           onClick={() => {
-            resetForm();
-            setShowAddModal(true);
+            requireAuth(() => {
+              resetForm();
+              setShowAddModal(true);
+            });
           }}
-          className="bg-archo-brass text-archo-cream px-8 py-3 rounded-full font-serif font-bold text-sm shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all flex items-center gap-2"
+          className="px-8 py-3 rounded-full text-sm flex items-center gap-2"
         >
           <Plus size={18} /> New Case
-        </button>
+        </PrimaryButton>
       </header>
 
       {/* Filters Bar */}
@@ -296,7 +314,7 @@ export default function Cases() {
               {filteredCases.map((c) => (
                 <tr 
                   key={c.id} 
-                  onClick={() => openEditModal(c)}
+                  onClick={() => requireAuth(() => openEditModal(c))}
                   className="hover:bg-archo-paper transition-colors cursor-pointer group"
                 >
                   <td className="px-6 py-5">
@@ -343,13 +361,13 @@ export default function Cases() {
                   <td className="px-6 py-5">
                     <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
-                        onClick={(e) => { e.stopPropagation(); openEditModal(c); }}
+                        onClick={(e) => { e.stopPropagation(); requireAuth(() => openEditModal(c)); }}
                         className="p-2 text-archo-slate hover:text-archo-brass transition-colors"
                       >
                         <Edit3 size={16} />
                       </button>
                       <button 
-                        onClick={(e) => handleDeleteCase(c.id, e)}
+                        onClick={(e) => requireAuth(() => handleDeleteCase(c.id, e))}
                         className="p-2 text-archo-slate hover:text-red-600 transition-colors"
                       >
                         <Trash2 size={16} />
@@ -371,6 +389,43 @@ export default function Cases() {
 
       {/* Modals */}
       <AnimatePresence>
+        {showLimitModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLimitModal(false)}
+              className="absolute inset-0 bg-archo-ink/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-archo-cream w-full max-w-md rounded-3xl p-8 shadow-2xl border border-archo-brass/20"
+            >
+              <div className="w-16 h-16 bg-archo-gold/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <AlertCircle size={32} className="text-archo-gold" />
+              </div>
+              <h3 className="text-2xl font-serif font-bold text-archo-ink text-center mb-4">Case Limit Reached</h3>
+              <p className="text-archo-slate text-center mb-8 leading-relaxed">
+                Free users are limited to 3 active cases. Upgrade to Pro for unlimited cases and advanced pipeline management.
+              </p>
+              <div className="flex flex-col gap-3">
+                <PrimaryButton onClick={() => { setShowLimitModal(false); onUpgrade(); }} className="w-full py-4 rounded-xl">
+                  Upgrade to Pro
+                </PrimaryButton>
+                <button 
+                  onClick={() => setShowLimitModal(false)}
+                  className="w-full py-4 text-archo-muted font-bold hover:text-archo-ink transition-colors"
+                >
+                  Maybe Later
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {(showAddModal || showEditModal) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div 
@@ -495,13 +550,13 @@ export default function Cases() {
                   >
                     Cancel
                   </button>
-                  <button 
+                  <PrimaryButton 
                     type="submit"
-                    className="flex-1 py-3 bg-archo-brass text-archo-cream rounded-xl font-serif font-bold shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2"
+                    className="flex-1 py-3 rounded-xl"
                   >
                     {showAddModal ? <Plus size={18} /> : <ArrowRight size={18} />}
                     {showAddModal ? 'Create Case' : 'Save Changes'}
-                  </button>
+                  </PrimaryButton>
                 </div>
               </form>
             </motion.div>

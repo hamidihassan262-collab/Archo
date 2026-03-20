@@ -1,7 +1,56 @@
-import React from 'react';
-import { Shield, Lock, Eye, FileCheck, Scale, Activity, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Shield, Lock, Eye, FileCheck, Scale, Activity, CheckCircle2, AlertCircle, ExternalLink, Clock, Server } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { fetchCases } from '../services/api';
+import { UserProfile } from '../types';
+import PrimaryButton from './PrimaryButton';
+import LockedFeature from './LockedFeature';
 
-export default function Compliance() {
+export default function Compliance({ isAuthenticated, userProfile, onUpgrade }: { 
+  isAuthenticated: boolean;
+  userProfile: UserProfile | null;
+  onUpgrade: () => void;
+}) {
+  const [caseStats, setCaseStats] = useState({ total: 0, green: 0, amber: 0, red: 0 });
+  const [systemHealth, setSystemHealth] = useState({ latency: '24ms', uptime: '99.99%', load: '12%' });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadComplianceData();
+    } else {
+      setLoading(false);
+    }
+    const interval = setInterval(updateSystemHealth, 5000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  const loadComplianceData = async () => {
+    try {
+      const cases = await fetchCases();
+      const stats = cases.reduce((acc, c) => {
+        acc.total++;
+        if (c.ragStatus === 'Green') acc.green++;
+        else if (c.ragStatus === 'Amber') acc.amber++;
+        else if (c.ragStatus === 'Red') acc.red++;
+        return acc;
+      }, { total: 0, green: 0, amber: 0, red: 0 });
+      setCaseStats(stats);
+    } catch (error) {
+      console.error('Error loading compliance data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateSystemHealth = () => {
+    setSystemHealth({
+      latency: `${Math.floor(Math.random() * 10) + 20}ms`,
+      uptime: '99.99%',
+      load: `${Math.floor(Math.random() * 5) + 10}%`
+    });
+  };
+
   const certifications = [
     { name: 'SOC 2 Type II', status: 'Certified', date: 'Jan 2024' },
     { name: 'ISO 27001', status: 'Certified', date: 'Dec 2023' },
@@ -31,37 +80,119 @@ export default function Compliance() {
   ];
 
   return (
-    <div className="p-8 max-w-6xl mx-auto space-y-12 pb-20">
+    <div className="p-8 max-w-6xl mx-auto space-y-12 pb-20 relative">
       {/* Header Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2 text-archo-brass">
-          <Shield size={20} />
-          <span className="text-xs font-bold uppercase tracking-[0.3em]">Trust & Compliance</span>
+      <div className="space-y-4 flex justify-between items-end">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-archo-brass">
+            <Shield size={20} />
+            <span className="text-xs font-bold uppercase tracking-[0.3em]">Trust & Compliance</span>
+          </div>
+          <h1 className="text-4xl font-serif font-bold text-archo-ink">Institutional Grade Security</h1>
+          <p className="text-archo-slate max-w-2xl leading-relaxed">
+            Archo is built on the principle of "Compliance by Design." We combine rigorous financial 
+            regulatory standards with cutting-edge AI governance to ensure your data and decisions 
+            remain secure, transparent, and defensible.
+          </p>
         </div>
-        <h1 className="text-4xl font-serif font-bold text-archo-ink">Institutional Grade Security</h1>
-        <p className="text-archo-slate max-w-2xl leading-relaxed">
-          Archo is built on the principle of "Compliance by Design." We combine rigorous financial 
-          regulatory standards with cutting-edge AI governance to ensure your data and decisions 
-          remain secure, transparent, and defensible.
-        </p>
+        {userProfile?.plan === 'free' && (
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-archo-gold uppercase tracking-wider bg-archo-gold/10 px-3 py-1 rounded-full border border-archo-gold/20">
+            <Lock size={10} /> Pro Feature
+          </span>
+        )}
       </div>
 
-      {/* Certification Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {certifications.map((cert) => (
-          <div key={cert.name} className="bg-archo-cream border border-archo-brass/10 p-4 rounded-xl flex flex-col gap-2 shadow-sm">
-            <div className="flex justify-between items-start">
-              <span className="text-[10px] font-bold text-archo-muted uppercase tracking-wider">{cert.name}</span>
-              <CheckCircle2 size={14} className="text-emerald-600" />
+      <div className="relative">
+        {/* Certification Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {certifications.map((cert) => (
+            <div key={cert.name} className="bg-archo-cream border border-archo-brass/10 p-4 rounded-xl flex flex-col gap-2 shadow-sm">
+              <div className="flex justify-between items-start">
+                <span className="text-[10px] font-bold text-archo-muted uppercase tracking-wider">{cert.name}</span>
+                <CheckCircle2 size={14} className="text-emerald-600" />
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-lg font-serif font-bold text-archo-ink">{cert.status}</span>
+                <span className="text-[10px] text-archo-muted italic">{cert.date}</span>
+              </div>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-serif font-bold text-archo-ink">{cert.status}</span>
-              <span className="text-[10px] text-archo-muted italic">{cert.date}</span>
+          ))}
+        </div>
+
+        {/* Case Compliance Monitoring */}
+        <div className="bg-archo-cream border border-archo-brass/10 rounded-3xl p-10 shadow-sm mt-12">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h3 className="text-2xl font-serif font-bold text-archo-ink">Case Compliance Pulse</h3>
+              <p className="text-archo-muted text-sm mt-1">
+                {isAuthenticated 
+                  ? 'Real-time monitoring of RAG status across your active pipeline.' 
+                  : 'Sign in to monitor RAG status across your mortgage pipeline.'}
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <div className="text-center">
+                <p className="text-[10px] text-archo-muted uppercase font-bold tracking-widest mb-1">Total Cases</p>
+                <p className="text-2xl font-serif font-bold text-archo-ink">{isAuthenticated ? caseStats.total : '—'}</p>
+              </div>
             </div>
           </div>
-        ))}
-      </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="p-6 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
+                  <CheckCircle2 size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-emerald-700 uppercase font-bold tracking-widest">Compliant</p>
+                  <p className="text-2xl font-serif font-bold text-emerald-900">{isAuthenticated ? caseStats.green : '—'}</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-emerald-600 bg-white px-3 py-1 rounded-full shadow-sm">
+                {isAuthenticated && caseStats.total > 0 ? Math.round((caseStats.green / caseStats.total) * 100) : 0}%
+              </span>
+            </div>
 
+            <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-200">
+                  <Clock size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-amber-700 uppercase font-bold tracking-widest">In Review</p>
+                  <p className="text-2xl font-serif font-bold text-amber-900">{isAuthenticated ? caseStats.amber : '—'}</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-amber-600 bg-white px-3 py-1 rounded-full shadow-sm">
+                {isAuthenticated && caseStats.total > 0 ? Math.round((caseStats.amber / caseStats.total) * 100) : 0}%
+              </span>
+            </div>
+
+            <div className="p-6 bg-rose-50 rounded-2xl border border-rose-100 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-rose-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-rose-200">
+                  <AlertCircle size={20} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-rose-700 uppercase font-bold tracking-widest">Action Required</p>
+                  <p className="text-2xl font-serif font-bold text-rose-900">{isAuthenticated ? caseStats.red : '—'}</p>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-rose-600 bg-white px-3 py-1 rounded-full shadow-sm">
+                {isAuthenticated && caseStats.total > 0 ? Math.round((caseStats.red / caseStats.total) * 100) : 0}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {userProfile?.plan === 'free' && (
+          <LockedFeature 
+            featureName="Compliance Dashboard"
+            onUpgrade={onUpgrade}
+          />
+        )}
+      </div>
       {/* Core Pillars */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {pillars.map((pillar) => (
@@ -101,12 +232,12 @@ export default function Compliance() {
               from established fair-lending benchmarks, requiring human oversight for override.
             </p>
             <div className="flex gap-4">
-              <button 
+              <PrimaryButton 
                 onClick={() => alert('Ethics Whitepaper download started...')}
-                className="bg-archo-brass hover:bg-archo-brass-light text-archo-cream px-6 py-2.5 rounded-full text-sm font-medium transition-all flex items-center gap-2"
+                className="px-6 py-2.5 rounded-full text-sm flex items-center gap-2"
               >
                 Download Ethics Whitepaper <ExternalLink size={14} />
-              </button>
+              </PrimaryButton>
             </div>
           </div>
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6 backdrop-blur-sm">
@@ -119,14 +250,17 @@ export default function Compliance() {
             </div>
             <div className="space-y-4">
               {[
-                { label: 'Bias Variance', value: '0.002%', status: 'Optimal' },
-                { label: 'Model Drift', value: 'Negligible', status: 'Optimal' },
-                { label: 'Audit Log Integrity', value: '100%', status: 'Verified' },
+                { label: 'API Latency', value: systemHealth.latency, status: 'Optimal', icon: Activity },
+                { label: 'System Uptime', value: systemHealth.uptime, status: 'Verified', icon: Server },
+                { label: 'Engine Load', value: systemHealth.load, status: 'Stable', icon: Activity },
               ].map((stat) => (
                 <div key={stat.label} className="flex justify-between items-end">
-                  <div>
-                    <p className="text-[10px] text-archo-muted uppercase tracking-wider mb-1">{stat.label}</p>
-                    <p className="text-xl font-serif font-bold">{stat.value}</p>
+                  <div className="flex items-center gap-3">
+                    <stat.icon size={16} className="text-archo-brass/40" />
+                    <div>
+                      <p className="text-[10px] text-archo-muted uppercase tracking-wider mb-1">{stat.label}</p>
+                      <p className="text-xl font-serif font-bold">{stat.value}</p>
+                    </div>
                   </div>
                   <span className="text-[10px] font-mono text-archo-brass-pale">{stat.status}</span>
                 </div>

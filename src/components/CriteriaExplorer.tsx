@@ -1,12 +1,63 @@
-import React, { useEffect, useState } from 'react';
-import { Search, Filter, Info, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
-import { Lender } from '../types';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Search, Filter, Info, CheckCircle2, AlertCircle, Clock, Sparkles, X, ExternalLink, Database, Lock } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Lender, UserPlan } from '../types';
 import { fetchLenders } from '../services/api';
+import { supabase } from '../lib/supabase';
+import { queryPinecone } from '../lib/pinecone';
+import PrimaryButton from './PrimaryButton';
 
-export default function CriteriaExplorer() {
+const SEED_LENDERS = [
+  {
+    name: 'Accord Mortgages',
+    max_ltv: 95,
+    min_income: 20000,
+    self_employed_policy: '2 years accounts required. Will consider 1 year with projection.',
+    adverse_credit_stance: 'Strict. No CCJs in last 3 years.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'NatWest',
+    max_ltv: 90,
+    min_income: 0,
+    self_employed_policy: 'Average of last 2 years. 1 year considered for professionals.',
+    adverse_credit_stance: 'Case by case. Small defaults ignored if satisfied.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'The Mortgage Works',
+    max_ltv: 75,
+    min_income: 25000,
+    self_employed_policy: 'BTL focus. No minimum income for experienced landlords.',
+    adverse_credit_stance: 'No adverse in last 2 years.',
+    updated_at: new Date().toISOString()
+  },
+  {
+    name: 'Halifax',
+    max_ltv: 95,
+    min_income: 0,
+    self_employed_policy: 'Latest year or average of last 2. Very flexible.',
+    adverse_credit_stance: 'Credit score based. High tolerance for minor issues.',
+    updated_at: new Date().toISOString()
+  }
+];
+
+interface CriteriaExplorerProps {
+  requireAuth: (cb: () => void) => void;
+  userPlan: UserPlan;
+  onUpgrade: () => void;
+}
+
+export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade }: CriteriaExplorerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAiSearching, setIsAiSearching] = useState(false);
+  const [selectedLender, setSelectedLender] = useState<Lender | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+
+  const isFree = userPlan === 'free';
 
   useEffect(() => {
     loadLenders();
@@ -17,9 +68,54 @@ export default function CriteriaExplorer() {
       const data = await fetchLenders();
       setLenders(data);
     } catch (error) {
-      console.error(error);
+      console.error('Error loading lenders:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const seedLenders = async () => {
+    setSeeding(true);
+    try {
+      const { error } = await supabase.from('lenders').insert(SEED_LENDERS);
+      if (error) throw error;
+      await loadLenders();
+    } catch (error) {
+      console.error('Error seeding lenders:', error);
+      alert('Failed to seed lenders. Check console for details.');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  const handleAiSearch = async () => {
+    if (isFree) {
+      setShowLimitModal(true);
+      return;
+    }
+    if (!searchTerm.trim()) return;
+    setIsAiSearching(true);
+    try {
+      const matches = await queryPinecone(searchTerm);
+      if (matches.length > 0) {
+        // Filter lenders that match the Pinecone results
+        const matchedLenderNames = matches.map(m => m.metadata.lender.toLowerCase());
+        const filtered = lenders.filter(l => 
+          matchedLenderNames.some(name => l.name.toLowerCase().includes(name))
+        );
+        
+        if (filtered.length > 0) {
+          setLenders(filtered);
+        } else {
+          alert('AI found relevant criteria but no matching lender profiles in the database.');
+        }
+      } else {
+        alert('No relevant criteria found in AI knowledge base.');
+      }
+    } catch (error) {
+      console.error('AI Search error:', error);
+    } finally {
+      setIsAiSearching(false);
     }
   };
 
@@ -52,7 +148,20 @@ export default function CriteriaExplorer() {
             className="w-full pl-12 pr-4 py-4 bg-archo-cream border border-archo-brass/20 rounded-2xl focus:outline-none focus:ring-2 focus:ring-archo-brass/10 focus:border-archo-brass transition-all placeholder:text-archo-muted shadow-sm"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAiSearch()}
           />
+          <button 
+            onClick={() => requireAuth(handleAiSearch)}
+            disabled={isAiSearching}
+            className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all shadow-md flex items-center gap-2 text-xs font-bold uppercase tracking-wider z-20 ${
+              isFree 
+                ? 'bg-archo-slate/20 text-archo-slate cursor-not-allowed' 
+                : 'bg-archo-ink text-archo-brass-pale hover:bg-archo-brass hover:text-archo-cream'
+            }`}
+          >
+            {isAiSearching ? <Clock className="animate-spin" size={14} /> : isFree ? <Lock size={14} /> : <Sparkles size={14} />}
+            {isFree ? 'Pro AI Search' : 'AI Search'}
+          </button>
         </div>
         <button 
           onClick={() => alert('Filtering options coming soon!')}
@@ -61,6 +170,22 @@ export default function CriteriaExplorer() {
           <Filter size={18} className="text-archo-brass" /> Filters
         </button>
       </div>
+
+      {lenders.length === 0 && !loading && (
+        <div className="bg-archo-cream border-2 border-dashed border-archo-brass/20 rounded-3xl p-12 text-center">
+          <Database size={48} className="mx-auto text-archo-brass/40 mb-4" />
+          <h3 className="text-xl font-serif font-bold text-archo-ink mb-2">No Lenders Found</h3>
+          <p className="text-archo-slate mb-8 max-w-md mx-auto">Your lenders table is currently empty. Would you like to seed it with some initial data to get started?</p>
+          <PrimaryButton 
+            onClick={() => requireAuth(seedLenders)}
+            disabled={seeding}
+            className="px-8 py-4 rounded-2xl flex items-center gap-2 mx-auto"
+          >
+            {seeding ? <Clock className="animate-spin" size={18} /> : <Database size={18} />}
+            Seed Initial Lenders
+          </PrimaryButton>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {filteredLenders.map((lender) => (
@@ -106,15 +231,140 @@ export default function CriteriaExplorer() {
               </div>
             </div>
 
-            <button 
-              onClick={() => alert(`Full policy for ${lender.name} is being retrieved...`)}
-              className="w-full mt-8 py-4 bg-archo-ink text-archo-brass-pale rounded-2xl font-serif font-bold text-sm hover:bg-archo-brass hover:text-archo-cream transition-all shadow-lg flex items-center justify-center gap-2"
+            <PrimaryButton 
+              onClick={() => requireAuth(() => setSelectedLender(lender))}
+              className="w-full mt-8 py-4 rounded-2xl text-sm flex items-center justify-center gap-2"
             >
               View Full Policy <Info size={18} />
-            </button>
+            </PrimaryButton>
           </div>
         ))}
       </div>
+
+      {/* Lender Details Modal */}
+      {selectedLender && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-archo-ink/60 backdrop-blur-md">
+          <div className="bg-archo-cream w-full max-w-2xl rounded-[40px] shadow-2xl overflow-hidden border border-archo-brass/20 animate-in fade-in zoom-in duration-300">
+            <div className="p-8 border-b border-archo-brass/10 flex justify-between items-center bg-archo-paper">
+              <div>
+                <h3 className="text-3xl font-serif font-bold text-archo-ink">{selectedLender.name}</h3>
+                <p className="text-archo-brass text-[10px] font-bold uppercase tracking-[0.25em] mt-1">Full Criteria Policy</p>
+              </div>
+              <button 
+                onClick={() => setSelectedLender(null)}
+                className="p-3 hover:bg-archo-brass/10 rounded-full transition-colors text-archo-muted hover:text-archo-ink"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-10 overflow-y-auto max-h-[70vh] space-y-10 scrollbar-hide">
+              <div className="grid grid-cols-2 gap-8">
+                <div className="p-6 bg-archo-paper rounded-3xl border border-archo-brass/10">
+                  <p className="text-[10px] text-archo-brass uppercase font-bold tracking-[0.2em] mb-3">Max LTV</p>
+                  <p className="text-4xl font-serif font-bold text-archo-ink">{selectedLender.maxLTV}%</p>
+                </div>
+                <div className="p-6 bg-archo-paper rounded-3xl border border-archo-brass/10">
+                  <p className="text-[10px] text-archo-brass uppercase font-bold tracking-[0.2em] mb-3">Min Income</p>
+                  <p className="text-4xl font-serif font-bold text-archo-ink">£{selectedLender.minIncome.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="space-y-8">
+                <section>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                      <CheckCircle2 size={18} />
+                    </div>
+                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-archo-ink">Self-Employed Policy</h4>
+                  </div>
+                  <div className="bg-archo-paper p-6 rounded-3xl border border-archo-brass/5">
+                    <p className="text-archo-slate font-serif italic leading-relaxed">{selectedLender.selfEmployedPolicy}</p>
+                  </div>
+                </section>
+
+                <section>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-xl bg-archo-brass/10 flex items-center justify-center text-archo-brass">
+                      <AlertCircle size={18} />
+                    </div>
+                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-archo-ink">Adverse Credit Stance</h4>
+                  </div>
+                  <div className="bg-archo-paper p-6 rounded-3xl border border-archo-brass/5">
+                    <p className="text-archo-slate font-serif italic leading-relaxed">{selectedLender.adverseCreditStance}</p>
+                  </div>
+                </section>
+
+                <section>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-xl bg-archo-ink/5 flex items-center justify-center text-archo-ink">
+                      <Info size={18} />
+                    </div>
+                    <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-archo-ink">Additional Information</h4>
+                  </div>
+                  <div className="bg-archo-paper p-6 rounded-3xl border border-archo-brass/5">
+                    <p className="text-archo-slate text-sm leading-relaxed">
+                      This lender typically requires a minimum of 3 months bank statements and the latest P60 for employed applicants. 
+                      For self-employed, the latest 2 years tax calculations and overviews are standard.
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </div>
+
+            <div className="p-8 bg-archo-paper border-t border-archo-brass/10 flex gap-4">
+              <PrimaryButton className="flex-1 py-4 rounded-2xl flex items-center justify-center gap-2">
+                Download Full Guide <ExternalLink size={18} />
+              </PrimaryButton>
+              <button 
+                onClick={() => setSelectedLender(null)}
+                className="px-8 py-4 bg-archo-cream border border-archo-brass/20 text-archo-ink rounded-2xl font-serif font-bold hover:bg-archo-paper transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showLimitModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowLimitModal(false)}
+              className="absolute inset-0 bg-archo-ink/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-archo-cream w-full max-w-md rounded-3xl p-8 shadow-2xl border border-archo-brass/20"
+            >
+              <div className="w-16 h-16 bg-archo-gold/10 rounded-full flex items-center justify-center mb-6 mx-auto">
+                <AlertCircle size={32} className="text-archo-gold" />
+              </div>
+              <h3 className="text-2xl font-serif font-bold text-archo-ink text-center mb-4">Pro Search Required</h3>
+              <p className="text-archo-slate text-center mb-8 leading-relaxed">
+                AI-powered criteria matching is a Pro feature. Upgrade to unlock advanced search across all lenders and scenarios.
+              </p>
+              <div className="flex flex-col gap-3">
+                <PrimaryButton onClick={() => { setShowLimitModal(false); onUpgrade(); }} className="w-full py-4 rounded-xl">
+                  Upgrade to Pro
+                </PrimaryButton>
+                <button 
+                  onClick={() => setShowLimitModal(false)}
+                  className="w-full py-4 text-archo-muted font-bold hover:text-archo-ink transition-colors"
+                >
+                  Maybe Later
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
