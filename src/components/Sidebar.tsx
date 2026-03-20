@@ -2,6 +2,7 @@ import React from 'react';
 import { LayoutDashboard, Briefcase, MessageSquare, Search, Settings, ShieldCheck, Gem, Crown, Building2, LogOut, Users } from 'lucide-react';
 import ArchoLogo from './Logo';
 import BorderGlow from './BorderGlow';
+import Waves from './Waves';
 import { UserProfile, UserPlan } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -55,8 +56,22 @@ export default function Sidebar({ activeTab, setActiveTab, onProfileClick, onSig
   };
 
   return (
-    <div className="w-64 bg-archo-ink h-screen flex flex-col text-archo-cream fixed left-0 top-0 border-r border-archo-brass/20 z-30">
-      <div className="p-8 flex items-center gap-3">
+    <div className="w-64 bg-archo-ink h-screen flex flex-col text-archo-cream fixed left-0 top-0 border-r border-archo-brass/20 z-30 overflow-hidden">
+      <Waves
+        lineColor="#ffffff"
+        backgroundColor="transparent"
+        waveSpeedX={0.0125}
+        waveSpeedY={0.01}
+        waveAmpX={40}
+        waveAmpY={20}
+        friction={0.9}
+        tension={0.01}
+        maxCursorMove={120}
+        xGap={12}
+        yGap={36}
+      />
+      <div className="relative z-10 flex flex-col h-full">
+        <div className="p-8 flex items-center gap-3">
         <div className="bg-archo-cream p-1 rounded-full shadow-lg border border-archo-brass/20">
           <ArchoLogo className="w-8 h-8" />
         </div>
@@ -144,5 +159,6 @@ export default function Sidebar({ activeTab, setActiveTab, onProfileClick, onSig
         )}
       </div>
     </div>
-  );
+  </div>
+);
 }

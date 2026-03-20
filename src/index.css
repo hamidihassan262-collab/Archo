@@ -18,23 +18,11 @@
 
 @layer base {
   body {
-    @apply bg-archo-paper text-archo-ink font-sans antialiased;
+    @apply bg-archo-paper text-archo-ink font-sans antialiased overflow-x-hidden;
   }
   
   h1, h2, h3, h4 {
     @apply font-serif;
-  }
-
-  button {
-    @apply transition-transform duration-200 cursor-pointer;
-  }
-
-  button:hover {
-    @apply scale-105;
-  }
-
-  button:active {
-    @apply scale-95;
   }
 }
 
