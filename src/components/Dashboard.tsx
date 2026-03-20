@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { MortgageCase, CaseStage } from '../types';
-import { MoreHorizontal, Calendar, ArrowRight, Plus } from 'lucide-react';
+import { MoreHorizontal, Calendar, ArrowRight, Plus, X, Edit3, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../lib/supabase';
 
 const STAGES: CaseStage[] = ['Lead', 'Fact-Find', 'Sourcing', 'Application', 'Offer', 'Completion'];
 
@@ -10,6 +10,7 @@ export default function Dashboard() {
   const [cases, setCases] = useState<MortgageCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedCase, setSelectedCase] = useState<MortgageCase | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [newCase, setNewCase] = useState({ 
     clientName: '', 
@@ -21,32 +22,15 @@ export default function Dashboard() {
     stage: 'Lead' as CaseStage 
   });
 
-  useEffect(() => {
-    loadCases();
-
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('cases-feed')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'cases' },
-        (payload) => {
-          console.log('Case changed:', payload);
-          loadCases();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const loadCases = async () => {
+  const loadCases = useCallback(async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from('cases')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -56,7 +40,6 @@ export default function Dashboard() {
 
       if (data) {
         const mappedData: MortgageCase[] = data.map((item: any) => {
-          // Robust stage mapping to handle lowercase and special characters like Fact-Find
           const dbStage = (item.stage || 'lead').toLowerCase();
           let stage: CaseStage = 'Lead';
           
@@ -85,23 +68,37 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCases();
+
+    const channel = supabase
+      .channel('cases-feed')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cases' },
+        () => {
+          loadCases();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadCases]);
 
   const handleAddCase = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
-        setModalError('You must be logged in to create a case. Redirecting to login...');
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setModalError('You must be logged in to create a case.');
         return;
       }
 
-      // Save to Supabase as requested
       const { error } = await supabase
         .from('cases')
         .insert({
@@ -136,14 +133,14 @@ export default function Dashboard() {
         assignedTo: 'Hassan Hamidi',
         stage: 'Lead' 
       });
-      // Real-time subscription will handle the UI update, but we can also call loadCases() to be sure
       loadCases();
     } catch (error: any) {
       setModalError(error.message || 'An unexpected error occurred. Please try again.');
     }
   };
 
-  const handleDeleteCase = async (id: string) => {
+  const handleDeleteCase = async (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this case?')) return;
     try {
       const { error } = await supabase
@@ -153,16 +150,32 @@ export default function Dashboard() {
       
       if (error) throw error;
       loadCases();
+      if (selectedCase?.id === id) setSelectedCase(null);
     } catch (error) {
       console.error('Delete error:', error);
       alert('Failed to delete case');
     }
   };
 
+  const handleUpdateStage = async (id: string, newStage: CaseStage) => {
+    try {
+      const { error } = await supabase
+        .from('cases')
+        .update({ stage: newStage.toLowerCase() })
+        .eq('id', id);
+      
+      if (error) throw error;
+      loadCases();
+    } catch (error) {
+      console.error('Update stage error:', error);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center h-full">
+      <div className="p-8 flex flex-col items-center justify-center h-full gap-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-archo-brass"></div>
+        <p className="text-archo-brass font-serif italic animate-pulse">Loading your pipeline...</p>
       </div>
     );
   }
@@ -194,24 +207,33 @@ export default function Dashboard() {
             
             <div className="flex flex-col gap-4">
               {cases.filter(c => c.stage === stage).map((item) => (
-                <motion.div
-                  layoutId={item.id}
-                  key={item.id}
-                  className="case-card group relative overflow-hidden"
-                  whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(139, 115, 46, 0.1)" }}
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shadow-sm ${
-                      item.ragStatus === 'Green' ? 'bg-emerald-600' : 
-                      item.ragStatus === 'Amber' ? 'bg-archo-brass' : 'bg-red-600'
-                    }`} />
-                    <button 
-                      onClick={() => handleDeleteCase(item.id)}
-                      className="text-archo-muted opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-600"
-                    >
-                      <MoreHorizontal size={16} />
-                    </button>
-                  </div>
+                  <motion.div
+                    layoutId={item.id}
+                    key={item.id}
+                    onClick={() => setSelectedCase(item)}
+                    className="case-card group relative overflow-hidden"
+                    whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(139, 115, 46, 0.1)" }}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className={`w-2.5 h-2.5 rounded-full mt-1.5 shadow-sm ${
+                        item.ragStatus === 'Green' ? 'bg-emerald-600' : 
+                        item.ragStatus === 'Amber' ? 'bg-archo-brass' : 'bg-red-600'
+                      }`} />
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCase(item.id);
+                          }}
+                          className="text-archo-muted hover:text-red-600"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        <button className="text-archo-muted hover:text-archo-brass">
+                          <MoreHorizontal size={14} />
+                        </button>
+                      </div>
+                    </div>
                   
                   <h4 className="font-serif font-bold text-xl text-archo-ink mb-2 leading-tight">{item.clientName}</h4>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mb-5">
@@ -244,6 +266,97 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* Case Detail Modal */}
+      <AnimatePresence>
+        {selectedCase && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedCase(null)}
+              className="absolute inset-0 bg-archo-ink/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-archo-cream w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border border-archo-brass/20"
+            >
+              <div className="p-8 border-b border-archo-brass/10 flex justify-between items-center bg-archo-paper">
+                <div className="flex items-center gap-4">
+                  <div className={`w-4 h-4 rounded-full ${
+                    selectedCase.ragStatus === 'Green' ? 'bg-emerald-600' : 
+                    selectedCase.ragStatus === 'Amber' ? 'bg-archo-brass' : 'bg-red-600'
+                  }`} />
+                  <div>
+                    <h3 className="text-2xl font-serif font-bold text-archo-ink">{selectedCase.clientName}</h3>
+                    <p className="text-[10px] text-archo-muted uppercase tracking-widest font-bold">Case ID: {selectedCase.id.slice(0, 8)}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedCase(null)} className="text-archo-muted hover:text-archo-ink transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="p-8 grid grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-archo-brass mb-1.5">Property Value</label>
+                    <p className="text-2xl font-serif font-bold text-archo-ink">£{selectedCase.propertyValue.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-archo-brass mb-1.5">Loan Amount</label>
+                    <p className="text-2xl font-serif font-bold text-archo-ink">£{selectedCase.loanAmount.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-archo-brass mb-1.5">LTV</label>
+                    <p className="text-2xl font-serif font-bold text-archo-ink">{selectedCase.ltv}%</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-archo-brass mb-1.5">Current Stage</label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {STAGES.map(s => (
+                        <button
+                          key={s}
+                          onClick={() => handleUpdateStage(selectedCase.id, s)}
+                          className={`px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
+                            selectedCase.stage === s 
+                              ? 'bg-archo-brass text-archo-cream' 
+                              : 'bg-archo-brass/5 text-archo-brass hover:bg-archo-brass/10'
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-archo-brass mb-1.5">Last Action</label>
+                    <p className="text-sm font-serif italic text-archo-slate">{selectedCase.lastActionDate}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 bg-archo-paper border-t border-archo-brass/10 flex gap-4">
+                <button className="flex-1 py-4 bg-archo-ink text-archo-brass-pale rounded-2xl font-serif font-bold hover:bg-archo-brass hover:text-archo-cream transition-all flex items-center justify-center gap-2">
+                  <Edit3 size={18} /> Edit Case
+                </button>
+                <button 
+                  onClick={() => handleDeleteCase(selectedCase.id)}
+                  className="px-6 py-4 border border-red-200 text-red-600 rounded-2xl font-serif font-bold hover:bg-red-50 transition-all"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Add Case Modal */}
       <AnimatePresence>

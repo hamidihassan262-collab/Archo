@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { MortgageCase, CaseStage } from '../types';
 import { Search, Filter, Plus, MoreVertical, Calendar, User, Trash2, Edit3, X, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '../../supabaseClient';
+import { supabase } from '../lib/supabase';
 
 const STAGES: CaseStage[] = ['Lead', 'Fact-Find', 'Sourcing', 'Application', 'Offer', 'Completion'];
 
@@ -29,30 +29,15 @@ export default function Cases() {
     stage: 'Lead' as CaseStage
   });
 
-  useEffect(() => {
-    loadCases();
-
-    const channel = supabase
-      .channel('cases-list-feed')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'cases' },
-        () => {
-          loadCases();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  const loadCases = async () => {
+  const loadCases = useCallback(async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data, error } = await supabase
         .from('cases')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -89,23 +74,35 @@ export default function Cases() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadCases();
+
+    const channel = supabase
+      .channel('cases-list-feed')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cases' },
+        () => {
+          loadCases();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadCases]);
 
   const handleAddCase = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalError(null);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (userError || !user) {
-        setModalError('You must be logged in to create a case. Redirecting to login...');
-        setTimeout(() => {
-          // If we had a router, we'd use navigate('/login')
-          // For now, we'll use a custom event or state change if possible, 
-          // but since we're in a component, we'll just set a flag or use window.location if it's a separate page.
-          // Given the prompt, I will assume a '/login' route exists or should exist.
-          window.location.href = '/login';
-        }, 2000);
+      if (!user) {
+        setModalError('You must be logged in to create a case.');
         return;
       }
 

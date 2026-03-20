@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { LogIn, UserPlus, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
-import { signIn, signUp } from '../../supabaseClient';
+import { supabase } from '../lib/supabase';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -19,18 +19,28 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const data = await signIn(email, password);
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInError) throw signInError;
         if (data?.user) {
-          window.location.href = '/';
-        } else {
-          setError('Invalid login credentials.');
+          // No need to redirect, App.tsx onAuthStateChange will handle it
         }
       } else {
-        const data = await signUp(email, password);
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: 'New Broker',
+              role: 'Independent Broker'
+            }
+          }
+        });
+        if (signUpError) throw signUpError;
         if (data?.user) {
           setSuccess('Check your email for the confirmation link!');
-        } else {
-          setError('Failed to sign up.');
         }
       }
     } catch (err: any) {
