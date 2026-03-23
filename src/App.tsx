@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import Sidebar from './components/Sidebar';
 import Waves from './components/Waves';
 import Dashboard from './components/Dashboard';
@@ -19,10 +20,20 @@ import Pricing from './components/Pricing';
 import GlobalSearch from './components/GlobalSearch';
 import TeamManagement from './components/TeamManagement';
 import LockedFeature from './components/LockedFeature';
-import { Bell, Search, HelpCircle } from 'lucide-react';
+import ProUnlockedNotification from './components/ProUnlockedNotification';
+import { Bell, Search, HelpCircle, Volume2, VolumeX } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { UserProfile, UserPlan, UserRole } from './types';
 import { getUserProfile, updatePlan } from './services/pricingService';
+import { 
+  playHoverSound, 
+  playClickSound, 
+  playModalOpenSound, 
+  playModalCloseSound, 
+  playTypeSound,
+  getMuteStatus,
+  toggleMute
+} from './lib/sounds';
 
 import Onboarding from './components/Onboarding';
 
@@ -31,6 +42,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+  const [showProUnlockedNotification, setShowProUnlockedNotification] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile>({
     id: '',
@@ -49,19 +61,40 @@ export default function App() {
   const [typedKey, setTypedKey] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(getMuteStatus());
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+      
+      // Only play sound for character keys, backspace, and delete when in an input
+      if (isInput && (e.key.length === 1 || e.key === 'Backspace' || e.key === 'Delete')) {
+        playTypeSound();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, []);
 
   const hasProAccess = userProfile.plan !== 'free' || isKeyUnlocked;
+
+  const triggerProUnlocked = () => {
+    setShowProUnlockedNotification(true);
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#D4AF37', '#8B732E', '#B59410', '#F5F5F0'],
+    });
+  };
 
   const handleSecretKeySubmit = (key: string) => {
     if (key.includes('Aftrbirth')) {
       setIsKeyUnlocked(true);
       setTypedKey('');
-      // Add a small visual feedback
-      const notification = document.createElement('div');
-      notification.className = 'fixed bottom-8 right-8 bg-archo-ink text-archo-brass-pale px-6 py-3 rounded-2xl border border-archo-brass/30 shadow-2xl z-[200] font-serif italic animate-bounce';
-      notification.innerText = 'Pro Access Unlocked';
-      document.body.appendChild(notification);
-      setTimeout(() => notification.remove(), 3000);
+      triggerProUnlocked();
       console.log('Pro Access Unlocked via Secret Key!');
     }
   };
@@ -101,6 +134,18 @@ export default function App() {
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [typedKey]);
+
+  useEffect(() => {
+    if (isSettingsOpen || isAuthModalOpen || isGlobalSearchOpen || showOnboarding) {
+      playModalOpenSound();
+    }
+  }, [isSettingsOpen, isAuthModalOpen, isGlobalSearchOpen, showOnboarding]);
+
+  const handleToggleMute = () => {
+    const newState = toggleMute();
+    setIsSoundEnabled(newState);
+    playClickSound();
+  };
 
   const requireAuth = (callback: () => void) => {
     if (!isAuthenticated) {
@@ -205,7 +250,9 @@ export default function App() {
     const success = await updatePlan(userProfile.id, plan);
     if (success) {
       setUserProfile(prev => ({ ...prev, plan }));
-      alert(`Successfully upgraded to ${plan.toUpperCase()}!`);
+      if (plan === 'pro' || plan === 'company') {
+        triggerProUnlocked();
+      }
       setActiveTab('dashboard');
     }
   };
@@ -401,14 +448,30 @@ export default function App() {
           
           <div className="flex items-center gap-6">
             <button 
-              onClick={() => alert('Notifications panel coming soon!')}
+              onClick={handleToggleMute}
+              onMouseEnter={playHoverSound}
+              className="text-archo-slate hover:text-archo-brass transition-colors"
+              title={isSoundEnabled ? "Mute sounds" : "Unmute sounds"}
+            >
+              {isSoundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+            </button>
+            <button 
+              onClick={() => {
+                playClickSound();
+                alert('Notifications panel coming soon!');
+              }}
+              onMouseEnter={playHoverSound}
               className="text-archo-slate hover:text-archo-brass transition-colors relative"
             >
               <Bell size={20} />
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-archo-brass rounded-full border-2 border-archo-paper"></span>
             </button>
             <button 
-              onClick={() => alert('Help center opening...')}
+              onClick={() => {
+                playClickSound();
+                alert('Help center opening...');
+              }}
+              onMouseEnter={playHoverSound}
               className="text-archo-slate hover:text-archo-brass transition-colors"
             >
               <HelpCircle size={20} />
@@ -452,6 +515,11 @@ export default function App() {
         onClose={() => setIsGlobalSearchOpen(false)}
         onSelectCase={(id) => setActiveTab('cases')}
         onSelectLender={(id) => setActiveTab('criteria')}
+      />
+
+      <ProUnlockedNotification 
+        isVisible={showProUnlockedNotification} 
+        onClose={() => setShowProUnlockedNotification(false)} 
       />
     </div>
   );

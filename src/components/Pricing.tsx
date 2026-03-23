@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, Shield, Zap, Users, ArrowRight, Star } from 'lucide-react';
 import PrimaryButton from './PrimaryButton';
 import { UserPlan } from '../types';
+import { playHoverSound, playClickSound } from '../lib/sounds';
 
 interface PricingProps {
   currentPlan: UserPlan;
@@ -118,8 +119,12 @@ export default function Pricing({ currentPlan, onUpgrade, onSecretKeySubmit, isK
             </ul>
 
             <PrimaryButton
-              onClick={() => onUpgrade(plan.id as UserPlan)}
+              onClick={() => {
+                playClickSound();
+                onUpgrade(plan.id as UserPlan);
+              }}
               disabled={plan.buttonDisabled}
+              onMouseEnter={playHoverSound}
               className={`w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 ${
                 plan.highlight 
                   ? 'bg-archo-brass text-archo-cream hover:bg-archo-brass-pale' 
@@ -141,7 +146,11 @@ export default function Pricing({ currentPlan, onUpgrade, onSecretKeySubmit, isK
         <p className="text-archo-slate max-w-xl mx-auto">
           Need more than 20 users or custom integrations? We offer tailored solutions for large mortgage networks and banks.
         </p>
-        <button className="text-archo-brass font-bold hover:underline flex items-center gap-2 mx-auto">
+        <button 
+          onMouseEnter={playHoverSound}
+          onClick={playClickSound}
+          className="text-archo-brass font-bold hover:underline flex items-center gap-2 mx-auto"
+        >
           Contact Sales <ArrowRight size={16} />
         </button>
       </div>
@@ -166,9 +175,11 @@ export default function Pricing({ currentPlan, onUpgrade, onSecretKeySubmit, isK
           />
           <button 
             onClick={() => {
+              playClickSound();
               if (onSecretKeySubmit) onSecretKeySubmit(secretKey);
               setSecretKey('');
             }}
+            onMouseEnter={playHoverSound}
             disabled={isKeyUnlocked || !secretKey.trim()}
             className="bg-archo-ink text-archo-cream px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-archo-ink/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >

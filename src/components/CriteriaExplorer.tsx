@@ -6,6 +6,7 @@ import { fetchLenders } from '../services/api';
 import { supabase } from '../lib/supabase';
 import { queryPinecone } from '../lib/pinecone';
 import PrimaryButton from './PrimaryButton';
+import { playHoverSound, playClickSound, playModalOpenSound, playModalCloseSound, playSuccessSound, playErrorSound } from '../lib/sounds';
 
 const SEED_LENDERS = [
   {
@@ -172,12 +173,15 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
 
   const seedLenders = async () => {
     setSeeding(true);
+    playClickSound();
     try {
       const { error } = await supabase.from('lenders').insert(SEED_LENDERS);
       if (error) throw error;
       await loadLenders();
+      playSuccessSound();
     } catch (error) {
       console.error('Error seeding lenders:', error);
+      playErrorSound();
       alert('Failed to seed lenders. Check console for details.');
     } finally {
       setSeeding(false);
@@ -185,8 +189,10 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
   };
 
   const handleAiSearch = async () => {
+    playClickSound();
     if (isFree) {
       setShowLimitModal(true);
+      playModalOpenSound();
       return;
     }
     if (!searchTerm.trim()) return;
@@ -202,14 +208,18 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
         
         if (filtered.length > 0) {
           setLenders(filtered);
+          playSuccessSound();
         } else {
+          playErrorSound();
           alert('AI found relevant criteria but no matching lender profiles in the database.');
         }
       } else {
+        playErrorSound();
         alert('No relevant criteria found in AI knowledge base.');
       }
     } catch (error) {
       console.error('AI Search error:', error);
+      playErrorSound();
     } finally {
       setIsAiSearching(false);
     }
@@ -252,6 +262,7 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
           />
           <button 
             onClick={() => requireAuth(handleAiSearch)}
+            onMouseEnter={playHoverSound}
             disabled={isAiSearching}
             className={`absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl transition-all shadow-md flex items-center gap-2 text-xs font-bold uppercase tracking-wider z-20 ${
               isFree 
@@ -268,7 +279,11 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
           <div className="flex flex-col">
             <label className="text-[8px] font-bold uppercase tracking-widest text-archo-brass">Specialist Only</label>
             <button
-              onClick={() => setShowSpecialistOnly(!showSpecialistOnly)}
+              onClick={() => {
+                playClickSound();
+                setShowSpecialistOnly(!showSpecialistOnly);
+              }}
+              onMouseEnter={playHoverSound}
               className={`w-12 h-6 rounded-full transition-all relative mt-1 ${
                 showSpecialistOnly ? 'bg-archo-brass' : 'bg-archo-brass/20'
               }`}
@@ -308,11 +323,13 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
 
         <button 
           onClick={() => {
+            playClickSound();
             setSearchTerm('');
             setLtvFilter(100);
             setIncomeFilter(0);
             setShowSpecialistOnly(false);
           }}
+          onMouseEnter={playHoverSound}
           className="flex items-center gap-2 px-8 py-4 bg-archo-cream border border-archo-brass/20 rounded-2xl text-archo-ink font-serif font-bold hover:bg-archo-paper transition-all shadow-sm"
         >
           Reset
@@ -326,6 +343,7 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
           <p className="text-archo-slate mb-8 max-w-md mx-auto">Your lenders table is currently empty. Would you like to seed it with some initial data to get started?</p>
           <PrimaryButton 
             onClick={() => requireAuth(seedLenders)}
+            onMouseEnter={playHoverSound}
             disabled={seeding}
             className="px-8 py-4 rounded-2xl flex items-center gap-2 mx-auto"
           >
@@ -337,7 +355,11 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {filteredLenders.map((lender) => (
-          <div key={lender.id} className="bg-archo-cream rounded-3xl border border-archo-brass/10 p-8 shadow-sm hover:shadow-xl transition-all group">
+          <div 
+            key={lender.id} 
+            onMouseEnter={playHoverSound}
+            className="bg-archo-cream rounded-3xl border border-archo-brass/10 p-8 shadow-sm hover:shadow-xl transition-all group"
+          >
             <div className="flex justify-between items-start mb-8">
               <div>
                 <h3 className="text-2xl font-serif font-bold text-archo-ink group-hover:text-archo-brass transition-colors">{lender.name}</h3>
@@ -388,7 +410,14 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
             </div>
 
             <PrimaryButton 
-              onClick={() => requireAuth(() => setSelectedLender(lender))}
+              onClick={() => {
+                playClickSound();
+                requireAuth(() => {
+                  setSelectedLender(lender);
+                  playModalOpenSound();
+                });
+              }}
+              onMouseEnter={playHoverSound}
               className="w-full mt-8 py-4 rounded-2xl text-sm flex items-center justify-center gap-2"
             >
               View Full Policy <Info size={18} />
@@ -407,7 +436,11 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
                 <p className="text-archo-brass text-[10px] font-bold uppercase tracking-[0.25em] mt-1">Full Criteria Policy</p>
               </div>
               <button 
-                onClick={() => setSelectedLender(null)}
+                onClick={() => {
+                  playModalCloseSound();
+                  setSelectedLender(null);
+                }}
+                onMouseEnter={playHoverSound}
                 className="p-3 hover:bg-archo-brass/10 rounded-full transition-colors text-archo-muted hover:text-archo-ink"
               >
                 <X size={24} />
@@ -469,11 +502,19 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
             </div>
 
             <div className="p-8 bg-archo-paper border-t border-archo-brass/10 flex gap-4">
-              <PrimaryButton className="flex-1 py-4 rounded-2xl flex items-center justify-center gap-2">
+              <PrimaryButton 
+                onClick={() => playClickSound()}
+                onMouseEnter={playHoverSound}
+                className="flex-1 py-4 rounded-2xl flex items-center justify-center gap-2"
+              >
                 Download Full Guide <ExternalLink size={18} />
               </PrimaryButton>
               <button 
-                onClick={() => setSelectedLender(null)}
+                onClick={() => {
+                  playModalCloseSound();
+                  setSelectedLender(null);
+                }}
+                onMouseEnter={playHoverSound}
                 className="px-8 py-4 bg-archo-cream border border-archo-brass/20 text-archo-ink rounded-2xl font-serif font-bold hover:bg-archo-paper transition-all"
               >
                 Close
@@ -490,7 +531,10 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowLimitModal(false)}
+              onClick={() => {
+                playModalCloseSound();
+                setShowLimitModal(false);
+              }}
               className="absolute inset-0 bg-archo-ink/60 backdrop-blur-sm"
             />
             <motion.div 
@@ -507,11 +551,25 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, has
                 AI-powered criteria matching is a Pro feature. Upgrade to unlock advanced search across all lenders and scenarios.
               </p>
               <div className="flex flex-col gap-3">
-                <PrimaryButton onClick={() => { setShowLimitModal(false); onUpgrade(); }} className="w-full py-4 rounded-xl">
+                <PrimaryButton 
+                  onClick={() => { 
+                    playClickSound();
+                    playModalCloseSound();
+                    setShowLimitModal(false); 
+                    onUpgrade(); 
+                  }} 
+                  onMouseEnter={playHoverSound}
+                  className="w-full py-4 rounded-xl"
+                >
                   Upgrade to Pro
                 </PrimaryButton>
                 <button 
-                  onClick={() => setShowLimitModal(false)}
+                  onClick={() => {
+                    playClickSound();
+                    playModalCloseSound();
+                    setShowLimitModal(false);
+                  }}
+                  onMouseEnter={playHoverSound}
                   className="w-full py-4 text-archo-muted font-bold hover:text-archo-ink transition-colors"
                 >
                   Maybe Later

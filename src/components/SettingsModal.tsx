@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, LogOut, User, Shield, Save } from 'lucide-react';
+import { X, LogOut, User, Shield, Save, Volume2, VolumeX } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PrimaryButton from './PrimaryButton';
 import { UserProfile, UserRole } from '../types';
+import { 
+  playHoverSound, 
+  playClickSound, 
+  playModalCloseSound, 
+  playSuccessSound, 
+  playErrorSound,
+  getMuteStatus,
+  toggleMute
+} from '../lib/sounds';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -15,14 +24,32 @@ interface SettingsModalProps {
 export default function SettingsModal({ isOpen, onClose, userProfile, onUpdateProfile }: SettingsModalProps) {
   const [fullName, setFullName] = useState(userProfile.full_name || '');
   const [role, setRole] = useState(userProfile.role);
+  const [isSoundEnabled, setIsSoundEnabled] = useState(getMuteStatus());
 
   const handleSignOut = async () => {
+    playClickSound();
     await supabase.auth.signOut();
     window.location.reload(); // Simple redirect/reload to trigger auth state change
   };
 
   const handleSave = () => {
-    onUpdateProfile(fullName, role);
+    try {
+      onUpdateProfile(fullName, role);
+      playSuccessSound();
+      onClose();
+    } catch (e) {
+      playErrorSound();
+    }
+  };
+
+  const handleToggleMute = () => {
+    const newState = toggleMute();
+    setIsSoundEnabled(newState);
+    playClickSound();
+  };
+
+  const handleClose = () => {
+    playModalCloseSound();
     onClose();
   };
 
@@ -53,13 +80,36 @@ export default function SettingsModal({ isOpen, onClose, userProfile, onUpdatePr
                   <p className="text-[10px] text-archo-muted uppercase tracking-widest font-bold">Manage your Archo profile</p>
                 </div>
               </div>
-              <button onClick={onClose} className="text-archo-muted hover:text-archo-ink transition-colors">
+              <button 
+                onClick={handleClose} 
+                onMouseEnter={playHoverSound}
+                className="text-archo-muted hover:text-archo-ink transition-colors"
+              >
                 <X size={24} />
               </button>
             </div>
 
             <div className="p-8 space-y-6">
               <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-archo-paper border border-archo-brass/10 rounded-2xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-archo-brass/10 rounded-lg flex items-center justify-center text-archo-brass">
+                      {isSoundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-serif font-bold text-archo-ink">Interface Sounds</p>
+                      <p className="text-[10px] text-archo-muted uppercase tracking-widest font-bold">Toggle audio feedback</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleToggleMute}
+                    onMouseEnter={playHoverSound}
+                    className={`w-12 h-6 rounded-full transition-all duration-300 relative ${isSoundEnabled ? 'bg-archo-brass' : 'bg-archo-muted/20'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${isSoundEnabled ? 'left-7' : 'left-1'}`} />
+                  </button>
+                </div>
+
                 <div>
                   <label className="block text-[10px] font-bold uppercase tracking-widest text-archo-brass mb-1.5">Email Address</label>
                   <div className="w-full bg-archo-brass/5 border border-archo-brass/10 rounded-xl p-3 text-archo-slate text-sm font-mono">
@@ -92,6 +142,7 @@ export default function SettingsModal({ isOpen, onClose, userProfile, onUpdatePr
               <div className="pt-6 border-t border-archo-brass/10 flex flex-col gap-4">
                 <PrimaryButton 
                   onClick={handleSave}
+                  onMouseEnter={playHoverSound}
                   className="w-full py-4 rounded-2xl flex items-center justify-center gap-2"
                 >
                   <Save size={18} /> Save Changes
@@ -99,6 +150,7 @@ export default function SettingsModal({ isOpen, onClose, userProfile, onUpdatePr
                 
                 <button 
                   onClick={handleSignOut}
+                  onMouseEnter={playHoverSound}
                   className="w-full py-4 border border-red-200 text-red-600 rounded-2xl font-serif font-bold hover:bg-red-50 transition-all flex items-center justify-center gap-2"
                 >
                   <LogOut size={18} /> Sign Out

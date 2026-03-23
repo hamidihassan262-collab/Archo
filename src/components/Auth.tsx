@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import PrimaryButton from './PrimaryButton';
 import ArchoLogo from './Logo';
 import { UserProfile } from '../types';
+import { playHoverSound, playClickSound, playModalCloseSound, playSuccessSound, playErrorSound } from '../lib/sounds';
 
 interface AuthProps {
   onClose?: () => void;
@@ -23,6 +24,7 @@ export default function Auth({ onClose, userProfile, onLogout, onBypass }: AuthP
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    playClickSound();
     setLoading(true);
     setError(null);
     setSuccess(null);
@@ -35,6 +37,7 @@ export default function Auth({ onClose, userProfile, onLogout, onBypass }: AuthP
         });
         if (signInError) throw signInError;
         if (data?.user) {
+          playSuccessSound();
           // No need to redirect, App.tsx onAuthStateChange will handle it
         }
       } else {
@@ -51,10 +54,12 @@ export default function Auth({ onClose, userProfile, onLogout, onBypass }: AuthP
         if (signUpError) throw signUpError;
         if (data?.user) {
           setSuccess('Check your email for the confirmation link!');
+          playSuccessSound();
         }
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication.');
+      playErrorSound();
     } finally {
       setLoading(false);
     }
@@ -75,7 +80,11 @@ export default function Auth({ onClose, userProfile, onLogout, onBypass }: AuthP
         >
           {onClose && (
             <button 
-              onClick={onClose}
+              onClick={() => {
+                playModalCloseSound();
+                onClose();
+              }}
+              onMouseEnter={playHoverSound}
               className="absolute top-6 right-6 text-archo-slate hover:text-archo-brass transition-colors p-2 hover:bg-archo-brass/5 rounded-full"
             >
               <X size={20} />
@@ -120,9 +129,14 @@ export default function Auth({ onClose, userProfile, onLogout, onBypass }: AuthP
 
             <PrimaryButton 
               onClick={() => {
+                playClickSound();
                 if (onLogout) onLogout();
-                if (onClose) onClose();
+                if (onClose) {
+                  playModalCloseSound();
+                  onClose();
+                }
               }}
+              onMouseEnter={playHoverSound}
               className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-600/20"
             >
               <LogOut size={18} /> Sign Out
@@ -147,7 +161,11 @@ export default function Auth({ onClose, userProfile, onLogout, onBypass }: AuthP
       >
         {onClose && (
           <button 
-            onClick={onClose}
+            onClick={() => {
+              playModalCloseSound();
+              onClose();
+            }}
+            onMouseEnter={playHoverSound}
             className="absolute top-6 right-6 text-archo-slate hover:text-archo-brass transition-colors p-2 hover:bg-archo-brass/5 rounded-full"
           >
             <X size={20} />
@@ -209,6 +227,7 @@ export default function Auth({ onClose, userProfile, onLogout, onBypass }: AuthP
           <PrimaryButton 
             disabled={loading}
             type="submit"
+            onMouseEnter={playHoverSound}
             className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
@@ -218,7 +237,11 @@ export default function Auth({ onClose, userProfile, onLogout, onBypass }: AuthP
 
         <div className="mt-8 pt-6 border-t border-archo-brass/10 text-center space-y-4">
           <button 
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={() => {
+              playClickSound();
+              setIsLogin(!isLogin);
+            }}
+            onMouseEnter={playHoverSound}
             className="text-xs font-serif font-bold text-archo-slate hover:text-archo-brass transition-colors block w-full"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
@@ -227,7 +250,11 @@ export default function Auth({ onClose, userProfile, onLogout, onBypass }: AuthP
           {onBypass && (
             <button 
               type="button"
-              onClick={onBypass}
+              onClick={() => {
+                playClickSound();
+                onBypass();
+              }}
+              onMouseEnter={playHoverSound}
               className="w-full py-3 rounded-xl bg-rose-600/10 text-rose-600 text-[10px] font-bold uppercase tracking-widest border border-rose-600/20 hover:bg-rose-600 hover:text-white transition-all"
             >
               Temporary Bypass (Demo Mode)

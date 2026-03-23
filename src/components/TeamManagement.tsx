@@ -3,6 +3,7 @@ import { Users, Mail, UserPlus, Shield, Trash2, CheckCircle2, AlertCircle, Searc
 import { motion, AnimatePresence } from 'motion/react';
 import { UserProfile } from '../types';
 import { supabase } from '../lib/supabase';
+import { playHoverSound, playClickSound, playSuccessSound, playErrorSound } from '../lib/sounds';
 
 interface TeamMember extends UserProfile {
   status: 'active' | 'pending';
@@ -48,9 +49,11 @@ export default function TeamManagement({ userProfile }: TeamManagementProps) {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    playClickSound();
     if (!inviteEmail.trim()) return;
     if (members.length >= 20) {
       setError('Team limit reached (20 members max).');
+      playErrorSound();
       return;
     }
 
@@ -64,6 +67,7 @@ export default function TeamManagement({ userProfile }: TeamManagementProps) {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       setSuccess(`Invitation sent to ${inviteEmail}`);
+      playSuccessSound();
       setInviteEmail('');
       
       // Add a mock pending member
@@ -83,20 +87,24 @@ export default function TeamManagement({ userProfile }: TeamManagementProps) {
       setMembers(prev => [...prev, mockPending]);
     } catch (err) {
       setError('Failed to send invitation. Please try again.');
+      playErrorSound();
     } finally {
       setInviting(false);
     }
   };
 
   const removeMember = async (memberId: string) => {
+    playClickSound();
     if (!confirm('Are you sure you want to remove this team member?')) return;
     
     try {
       // In a real app, this would update the user_profile to remove company_id
       setMembers(prev => prev.filter(m => m.id !== memberId));
       setSuccess('Member removed successfully.');
+      playSuccessSound();
     } catch (err) {
       setError('Failed to remove member.');
+      playErrorSound();
     }
   };
 
@@ -142,6 +150,7 @@ export default function TeamManagement({ userProfile }: TeamManagementProps) {
               <button 
                 type="submit"
                 disabled={inviting}
+                onMouseEnter={playHoverSound}
                 className="w-full py-4 bg-archo-ink text-archo-cream rounded-2xl font-serif font-bold hover:bg-archo-ink/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {inviting ? 'Sending...' : 'Send Invitation'}
@@ -231,7 +240,11 @@ export default function TeamManagement({ userProfile }: TeamManagementProps) {
                     </tr>
                   ) : (
                     members.map((member) => (
-                      <tr key={member.id} className="group hover:bg-archo-cream/50 transition-colors">
+                      <tr 
+                        key={member.id} 
+                        onMouseEnter={playHoverSound}
+                        className="group hover:bg-archo-cream/50 transition-colors"
+                      >
                         <td className="px-8 py-6">
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full bg-archo-brass/10 flex items-center justify-center text-archo-brass font-bold">
@@ -262,6 +275,7 @@ export default function TeamManagement({ userProfile }: TeamManagementProps) {
                           {member.id !== userProfile.id && (
                             <button 
                               onClick={() => removeMember(member.id)}
+                              onMouseEnter={playHoverSound}
                               className="p-2 text-archo-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                               title="Remove Member"
                             >

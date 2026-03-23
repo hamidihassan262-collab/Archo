@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import PrimaryButton from './PrimaryButton';
 import BorderGlow from './BorderGlow';
 import LockedFeature from './LockedFeature';
+import { playHoverSound, playClickSound, playModalOpenSound, playModalCloseSound, playSuccessSound, playErrorSound } from '../lib/sounds';
 
 const STAGES: CaseStage[] = ['Lead', 'Fact-Find', 'Sourcing', 'Application', 'Offer', 'Completion'];
 
@@ -134,6 +135,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
 
   const handleAddCase = async (e: React.FormEvent) => {
     e.preventDefault();
+    playClickSound();
     setModalError(null);
     try {
       if (userProfile?.id === 'demo-user') {
@@ -149,6 +151,8 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
         };
         setCases(prev => [newDemoCase, ...prev]);
         setShowAddModal(false);
+        playModalCloseSound();
+        playSuccessSound();
         setNewCase({ 
           clientName: '', 
           propertyValue: '', 
@@ -164,13 +168,16 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setModalError('You must be logged in to create a case.');
+        playErrorSound();
         return;
       }
 
       // Check case limit for free users
       if (!hasProAccess && cases.length >= 3) {
         setShowAddModal(false);
+        playModalCloseSound();
         setShowLimitModal(true);
+        playModalOpenSound();
         return;
       }
 
@@ -195,10 +202,13 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
           hint: error.hint
         });
         setModalError(`Database Error: ${error.message} (Code: ${error.code})`);
+        playErrorSound();
         return;
       }
       
       setShowAddModal(false);
+      playModalCloseSound();
+      playSuccessSound();
       setNewCase({ 
         clientName: '', 
         propertyValue: '', 
@@ -211,16 +221,22 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
       loadCases();
     } catch (error: any) {
       setModalError(error.message || 'An unexpected error occurred. Please try again.');
+      playErrorSound();
     }
   };
 
   const handleDeleteCase = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    playClickSound();
     if (!window.confirm('Are you sure you want to delete this case?')) return;
     try {
       if (userProfile?.id === 'demo-user') {
         setCases(prev => prev.filter(c => c.id !== id));
-        if (selectedCase?.id === id) setSelectedCase(null);
+        if (selectedCase?.id === id) {
+          setSelectedCase(null);
+          playModalCloseSound();
+        }
+        playSuccessSound();
         return;
       }
 
@@ -231,20 +247,27 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
       
       if (error) throw error;
       loadCases();
-      if (selectedCase?.id === id) setSelectedCase(null);
+      if (selectedCase?.id === id) {
+        setSelectedCase(null);
+        playModalCloseSound();
+      }
+      playSuccessSound();
     } catch (error) {
       console.error('Delete error:', error);
+      playErrorSound();
       alert('Failed to delete case');
     }
   };
 
   const handleUpdateStage = async (id: string, newStage: CaseStage) => {
+    playClickSound();
     try {
       if (userProfile?.id === 'demo-user') {
         setCases(prev => prev.map(c => c.id === id ? { ...c, stage: newStage } : c));
         if (selectedCase?.id === id) {
           setSelectedCase(prev => prev ? { ...prev, stage: newStage } : null);
         }
+        playSuccessSound();
         return;
       }
 
@@ -255,8 +278,10 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
       
       if (error) throw error;
       loadCases();
+      playSuccessSound();
     } catch (error) {
       console.error('Update stage error:', error);
+      playErrorSound();
     }
   };
 
@@ -278,13 +303,19 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
         </div>
         <div className="flex items-center gap-4">
           <PrimaryButton 
-            onClick={() => requireAuth(() => {
-              if (!hasProAccess && cases.length >= 3) {
-                setShowLimitModal(true);
-              } else {
-                setShowAddModal(true);
-              }
-            })}
+            onClick={() => {
+              playClickSound();
+              requireAuth(() => {
+                if (!hasProAccess && cases.length >= 3) {
+                  setShowLimitModal(true);
+                  playModalOpenSound();
+                } else {
+                  setShowAddModal(true);
+                  playModalOpenSound();
+                }
+              });
+            }}
+            onMouseEnter={playHoverSound}
             className="px-8 py-3 rounded-full text-sm flex items-center gap-2 shadow-lg shadow-archo-brass/10"
           >
             New Case <ArrowRight size={16} />
@@ -317,6 +348,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
               <motion.div 
                 key={i} 
                 whileHover={{ y: -4, boxShadow: "0 12px 30px -10px rgba(139, 115, 46, 0.15)" }}
+                onMouseEnter={playHoverSound}
                 className="bg-[#FEFDF5] border border-archo-gold/20 border-l-[3px] border-l-archo-gold rounded-2xl p-[24px] transition-all duration-300"
               >
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-archo-muted mb-3">{stat.label}</p>
@@ -364,7 +396,14 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
                 >
                   <motion.div
                     layoutId={item.id}
-                    onClick={() => requireAuth(() => setSelectedCase(item))}
+                    onClick={() => {
+                      playClickSound();
+                      requireAuth(() => {
+                        setSelectedCase(item);
+                        playModalOpenSound();
+                      });
+                    }}
+                    onMouseEnter={playHoverSound}
                     className="case-card group relative overflow-hidden h-full"
                     whileHover={{ y: -4, boxShadow: "0 10px 25px -5px rgba(139, 115, 46, 0.1)" }}
                   >
@@ -377,13 +416,22 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();
+                            playClickSound();
                             requireAuth(() => handleDeleteCase(item.id));
                           }}
+                          onMouseEnter={playHoverSound}
                           className="text-archo-muted hover:text-red-600"
                         >
                           <Trash2 size={14} />
                         </button>
-                        <button className="text-archo-muted hover:text-archo-brass">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            playClickSound();
+                          }}
+                          onMouseEnter={playHoverSound}
+                          className="text-archo-muted hover:text-archo-brass"
+                        >
                           <MoreHorizontal size={14} />
                         </button>
                       </div>
@@ -424,15 +472,19 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
                     } : {}}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                     onClick={() => {
+                      playClickSound();
                       requireAuth(() => {
                         if (!hasProAccess && cases.length >= 3) {
                           setShowLimitModal(true);
+                          playModalOpenSound();
                         } else {
                           setNewCase(prev => ({ ...prev, stage }));
                           setShowAddModal(true);
+                          playModalOpenSound();
                         }
                       });
                     }}
+                    onMouseEnter={playHoverSound}
                     className="w-full py-5 border-2 border-dashed border-archo-gold/40 rounded-2xl text-archo-gold hover:bg-archo-gold/5 hover:border-archo-gold transition-all text-[11px] font-bold uppercase tracking-[0.25em] flex items-center justify-center gap-2"
                   >
                     <Plus size={16} /> Add Case
@@ -472,7 +524,14 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
                     <p className="text-[10px] text-archo-muted uppercase tracking-widest font-bold">Case ID: {selectedCase.id.slice(0, 8)}</p>
                   </div>
                 </div>
-                <button onClick={() => setSelectedCase(null)} className="text-archo-muted hover:text-archo-ink transition-colors">
+                <button 
+                  onClick={() => {
+                    playModalCloseSound();
+                    setSelectedCase(null);
+                  }} 
+                  onMouseEnter={playHoverSound}
+                  className="text-archo-muted hover:text-archo-ink transition-colors"
+                >
                   <X size={24} />
                 </button>
               </div>
@@ -501,6 +560,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
                         <button
                           key={s}
                           onClick={() => handleUpdateStage(selectedCase.id, s)}
+                          onMouseEnter={playHoverSound}
                           className={`px-3 py-1.5 rounded-full text-[9px] font-bold uppercase tracking-wider transition-all ${
                             selectedCase.stage === s 
                               ? 'bg-archo-brass text-archo-cream' 
@@ -521,12 +581,15 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
 
               <div className="p-8 bg-archo-paper border-t border-archo-brass/10 flex gap-4">
                 <PrimaryButton 
+                  onClick={() => playClickSound()}
+                  onMouseEnter={playHoverSound}
                   className="flex-1 py-4 rounded-2xl flex items-center justify-center gap-2"
                 >
                   <Edit3 size={18} /> Edit Case
                 </PrimaryButton>
                 <button 
                   onClick={() => handleDeleteCase(selectedCase.id)}
+                  onMouseEnter={playHoverSound}
                   className="px-6 py-4 border border-red-200 text-red-600 rounded-2xl font-serif font-bold hover:bg-red-50 transition-all"
                 >
                   <Trash2 size={18} />
@@ -545,7 +608,10 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowLimitModal(false)}
+              onClick={() => {
+                playModalCloseSound();
+                setShowLimitModal(false);
+              }}
               className="absolute inset-0 bg-archo-ink/60 backdrop-blur-sm"
             />
             <motion.div 
@@ -562,11 +628,25 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
                 Free users are limited to 3 active cases. Upgrade to Pro for unlimited cases and advanced pipeline management.
               </p>
               <div className="flex flex-col gap-3">
-                <PrimaryButton onClick={() => { setShowLimitModal(false); onUpgrade(); }} className="w-full py-4 rounded-xl">
+                <PrimaryButton 
+                  onClick={() => { 
+                    playClickSound();
+                    playModalCloseSound();
+                    setShowLimitModal(false); 
+                    onUpgrade(); 
+                  }} 
+                  onMouseEnter={playHoverSound}
+                  className="w-full py-4 rounded-xl"
+                >
                   Upgrade to Pro
                 </PrimaryButton>
                 <button 
-                  onClick={() => setShowLimitModal(false)}
+                  onClick={() => {
+                    playClickSound();
+                    playModalCloseSound();
+                    setShowLimitModal(false);
+                  }}
+                  onMouseEnter={playHoverSound}
                   className="w-full py-4 text-archo-muted font-bold hover:text-archo-ink transition-colors"
                 >
                   Maybe Later
@@ -582,7 +662,10 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowAddModal(false)}
+              onClick={() => {
+                playModalCloseSound();
+                setShowAddModal(false);
+              }}
               className="absolute inset-0 bg-archo-ink/60 backdrop-blur-sm"
             />
             <motion.div 
@@ -689,15 +772,19 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
                   <button 
                     type="button"
                     onClick={() => {
+                      playClickSound();
+                      playModalCloseSound();
                       setShowAddModal(false);
                       setModalError(null);
                     }}
+                    onMouseEnter={playHoverSound}
                     className="flex-1 py-3 rounded-xl font-serif font-bold text-archo-slate hover:bg-archo-brass/5 transition-colors"
                   >
                     Cancel
                   </button>
                   <PrimaryButton 
                     type="submit"
+                    onMouseEnter={playHoverSound}
                     className="flex-1 py-3 rounded-xl"
                   >
                     Create Case

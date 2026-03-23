@@ -5,6 +5,7 @@ import BorderGlow from './BorderGlow';
 import Waves from './Waves';
 import { UserProfile, UserPlan } from '../types';
 import { supabase } from '../lib/supabase';
+import { playHoverSound, playClickSound } from '../lib/sounds';
 
 interface SidebarProps {
   activeTab: string;
@@ -28,6 +29,7 @@ export default function Sidebar({
   setIsCollapsed
 }: SidebarProps) {
   const handleLogout = async () => {
+    playClickSound();
     await supabase.auth.signOut();
   };
 
@@ -94,7 +96,11 @@ export default function Sidebar({
           {!isCollapsed && <ArchoLogo className="w-32" light />}
           {isCollapsed && <div className="w-8 h-8 bg-archo-brass rounded-lg flex items-center justify-center font-serif font-bold text-archo-cream">A</div>}
           <button 
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={() => {
+              playClickSound();
+              setIsCollapsed(!isCollapsed);
+            }}
+            onMouseEnter={playHoverSound}
             className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-archo-brass hover:bg-white/10 transition-colors"
           >
             {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -114,7 +120,11 @@ export default function Sidebar({
             className="w-full"
           >
             <button
-              onClick={() => setActiveTab(item.id)}
+              onClick={() => {
+                playClickSound();
+                setActiveTab(item.id);
+              }}
+              onMouseEnter={playHoverSound}
               className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-4'} py-3 rounded-full transition-all text-sm font-medium ${
                 activeTab === item.id
                   ? 'text-archo-cream'
@@ -141,7 +151,11 @@ export default function Sidebar({
             className="w-full"
           >
             <button 
-              onClick={onSignInClick}
+              onClick={() => {
+                playClickSound();
+                onSignInClick();
+              }}
+              onMouseEnter={playHoverSound}
               className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 p-3'} rounded-xl transition-all text-left border border-archo-brass/20 group`}
               title={isCollapsed ? "Sign In" : undefined}
             >
@@ -159,7 +173,11 @@ export default function Sidebar({
         ) : (
           <div className={`flex flex-col ${isCollapsed ? 'items-center' : ''} gap-4`}>
             <button 
-              onClick={onProfileClick}
+              onClick={() => {
+                playClickSound();
+                onProfileClick();
+              }}
+              onMouseEnter={playHoverSound}
               className={`w-full flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 p-2 -m-2'} hover:bg-white/5 rounded-xl transition-all text-left group`}
               title={isCollapsed ? userProfile.full_name || userProfile.email : undefined}
             >
@@ -178,6 +196,7 @@ export default function Sidebar({
             </button>
             <button 
               onClick={handleLogout}
+              onMouseEnter={playHoverSound}
               className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-2 px-3 py-2'} text-[10px] font-bold uppercase tracking-widest text-rose-600 hover:bg-rose-50 rounded-lg transition-colors`}
               title={isCollapsed ? "Sign Out" : undefined}
             >

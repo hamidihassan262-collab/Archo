@@ -27,6 +27,7 @@ import { fetchLenders, createCase } from '../services/api';
 import { Lender, CaseStage } from '../types';
 import Threads from './Threads';
 import PrimaryButton from './PrimaryButton';
+import { playHoverSound, playClickSound, playSuccessSound, playErrorSound } from '../lib/sounds';
 
 interface OnboardingProps {
   onComplete: (profileData: any) => void;
@@ -114,11 +115,18 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
     }
   }, [searchQuery, lenders]);
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, STEPS));
-  const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
+  const nextStep = () => {
+    playClickSound();
+    setStep(prev => Math.min(prev + 1, STEPS));
+  };
+  const prevStep = () => {
+    playClickSound();
+    setStep(prev => Math.max(prev - 1, 1));
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    playClickSound();
     setIsLoading(true);
     setError(null);
 
@@ -136,6 +144,7 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
       if (signUpError) throw signUpError;
 
       if (data.user) {
+        playSuccessSound();
         // Profile creation is usually handled by a trigger, but we need to update it with onboarding data
         const { error: profileError } = await supabase
           .from('user_profiles')
@@ -158,12 +167,14 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
       }
     } catch (err: any) {
       setError(err.message);
+      playErrorSound();
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleCreateFirstCase = async () => {
+    playClickSound();
     setIsLoading(true);
     setError(null);
     try {
@@ -176,10 +187,12 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
         stage: formData.firstCase.stage.toLowerCase()
       });
       // After creating the first case, we move to the final spotlight step
+      playSuccessSound();
       nextStep();
     } catch (err: any) {
       console.error('Error creating first case:', err);
       setError(err.message || 'Failed to create your first case. Please try again.');
+      playErrorSound();
     } finally {
       setIsLoading(false);
     }
@@ -192,6 +205,7 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
   ];
 
   const finishOnboarding = async () => {
+    playClickSound();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase
@@ -206,6 +220,7 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
   };
 
   const skipOnboarding = () => {
+    playClickSound();
     setStep(5);
   };
 
@@ -247,6 +262,7 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
       {step > 1 && step < 5 && (
         <button 
           onClick={skipOnboarding}
+          onMouseEnter={playHoverSound}
           className="absolute top-8 right-8 z-20 text-[10px] font-bold uppercase tracking-widest text-archo-muted hover:text-archo-brass transition-colors"
         >
           Skip Onboarding
@@ -280,6 +296,7 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
               <div className="pt-8">
                 <PrimaryButton 
                   onClick={nextStep}
+                  onMouseEnter={playHoverSound}
                   className="px-12 py-5 rounded-full text-lg group"
                 >
                   Let me show you something <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
@@ -310,7 +327,11 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                 ].map((option) => (
                   <button
                     key={option.id}
-                    onClick={() => setFormData({ ...formData, caseManagement: option.label })}
+                    onClick={() => {
+                      playClickSound();
+                      setFormData({ ...formData, caseManagement: option.label });
+                    }}
+                    onMouseEnter={playHoverSound}
                     className={`p-6 rounded-2xl border-2 text-left transition-all group ${
                       formData.caseManagement === option.label 
                         ? 'border-archo-brass bg-archo-brass/5 shadow-lg' 
@@ -331,7 +352,11 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
 
               {formData.caseManagement && (
                 <div className="flex justify-center pt-4">
-                  <PrimaryButton onClick={nextStep} className="px-12 py-4 rounded-full">
+                  <PrimaryButton 
+                    onClick={nextStep} 
+                    onMouseEnter={playHoverSound}
+                    className="px-12 py-4 rounded-full"
+                  >
                     Next
                   </PrimaryButton>
                 </div>
@@ -362,7 +387,11 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                 ].map((option) => (
                   <button
                     key={option}
-                    onClick={() => setFormData({ ...formData, painPoint: option })}
+                    onClick={() => {
+                      playClickSound();
+                      setFormData({ ...formData, painPoint: option });
+                    }}
+                    onMouseEnter={playHoverSound}
                     className={`w-full p-5 rounded-2xl border-2 text-left transition-all flex items-center justify-between group ${
                       formData.painPoint === option 
                         ? 'border-archo-brass bg-archo-brass/5 shadow-lg' 
@@ -383,7 +412,11 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
 
               {formData.painPoint && (
                 <div className="flex justify-center pt-4">
-                  <PrimaryButton onClick={nextStep} className="px-12 py-4 rounded-full">
+                  <PrimaryButton 
+                    onClick={nextStep} 
+                    onMouseEnter={playHoverSound}
+                    className="px-12 py-4 rounded-full"
+                  >
                     Next
                   </PrimaryButton>
                 </div>
@@ -451,7 +484,11 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                   <p className="text-sm text-archo-muted italic mb-8">
                     This search would have taken you 20 minutes manually. Archo found it in seconds.
                   </p>
-                  <PrimaryButton onClick={nextStep} className="px-12 py-5 rounded-full text-lg">
+                  <PrimaryButton 
+                    onClick={nextStep} 
+                    onMouseEnter={playHoverSound}
+                    className="px-12 py-5 rounded-full text-lg"
+                  >
                     I want this, create my account
                   </PrimaryButton>
                 </div>
@@ -551,6 +588,7 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                 <PrimaryButton 
                   type="submit"
                   disabled={isLoading}
+                  onMouseEnter={playHoverSound}
                   className="w-full py-4 rounded-xl mt-4"
                 >
                   {isLoading ? 'Creating Account...' : 'Create Account'}
@@ -558,7 +596,15 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
 
                 <p className="text-center text-xs text-archo-muted pt-4">
                   Already have an account?{' '}
-                  <button type="button" onClick={onSignIn} className="text-archo-brass font-bold hover:underline">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      playClickSound();
+                      onSignIn();
+                    }} 
+                    onMouseEnter={playHoverSound}
+                    className="text-archo-brass font-bold hover:underline"
+                  >
                     Sign in here
                   </button>
                 </p>
@@ -648,6 +694,7 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                 <PrimaryButton 
                   onClick={handleCreateFirstCase}
                   disabled={isLoading}
+                  onMouseEnter={playHoverSound}
                   className="w-full py-4 rounded-xl"
                 >
                   {isLoading ? 'Creating Case...' : 'Create My First Case'}
@@ -697,13 +744,18 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                       </p>
                       <div className="flex gap-3 pt-4">
                         <button 
-                          onClick={() => setSpotlightStep(1)}
+                          onClick={() => {
+                            playClickSound();
+                            setSpotlightStep(1);
+                          }}
+                          onMouseEnter={playHoverSound}
                           className="flex-1 py-3 bg-archo-brass text-archo-cream rounded-xl font-bold text-sm"
                         >
                           Next
                         </button>
                         <button 
                           onClick={finishOnboarding}
+                          onMouseEnter={playHoverSound}
                           className="px-6 py-3 text-archo-muted font-bold text-sm hover:text-archo-ink transition-colors"
                         >
                           Skip
@@ -729,13 +781,18 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                       </p>
                       <div className="flex gap-3 pt-4">
                         <button 
-                          onClick={() => setSpotlightStep(2)}
+                          onClick={() => {
+                            playClickSound();
+                            setSpotlightStep(2);
+                          }}
+                          onMouseEnter={playHoverSound}
                           className="flex-1 py-3 bg-archo-brass text-archo-cream rounded-xl font-bold text-sm"
                         >
                           Next
                         </button>
                         <button 
                           onClick={finishOnboarding}
+                          onMouseEnter={playHoverSound}
                           className="px-6 py-3 text-archo-muted font-bold text-sm hover:text-archo-ink transition-colors"
                         >
                           Skip
@@ -762,6 +819,7 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                       <div className="flex gap-3 pt-4">
                         <button 
                           onClick={finishOnboarding}
+                          onMouseEnter={playHoverSound}
                           className="flex-1 py-3 bg-archo-brass text-archo-cream rounded-xl font-bold text-sm"
                         >
                           Get Started

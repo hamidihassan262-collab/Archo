@@ -7,6 +7,7 @@ import { queryPinecone } from '../lib/pinecone';
 import PrimaryButton from './PrimaryButton';
 import { UserProfile } from '../types';
 import { incrementMessageCount } from '../services/pricingService';
+import { playHoverSound, playClickSound, playModalOpenSound, playModalCloseSound, playSuccessSound, playErrorSound } from '../lib/sounds';
 
 const currentSessionId = 'default-session'; // In a real app, this would be dynamic
 
@@ -111,6 +112,7 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
 
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file.');
+      playErrorSound();
       return;
     }
 
@@ -121,6 +123,7 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
         data: base64String,
         mimeType: file.type
       });
+      playSuccessSound();
     };
     reader.readAsDataURL(file);
   };
@@ -130,9 +133,11 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
 
     if (isFree && userProfile.daily_message_count >= messageLimit) {
       setShowLimitModal(true);
+      playModalOpenSound();
       return;
     }
 
+    playClickSound();
     const messageText = input;
     const userMsg: Message = {
       id: Date.now().toString(),
@@ -206,6 +211,7 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
       };
 
       setMessages(prev => [...prev, assistantMsg]);
+      playSuccessSound();
 
       // Save assistant message to Supabase
       await supabase
@@ -219,6 +225,7 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
 
     } catch (error) {
       console.error(error);
+      playErrorSound();
       setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -230,7 +237,8 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
     }
   };
 
-  const handleFileUpload = () => {
+   const handleFileUpload = () => {
+    playClickSound();
     if (isFree) {
       onUpgrade();
       return;
@@ -251,11 +259,23 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
               You've used your 5 free AI messages for today. Upgrade to Pro for unlimited chat, document uploads, and priority response speeds.
             </p>
             <div className="flex flex-col gap-3">
-              <PrimaryButton onClick={() => { setShowLimitModal(false); onUpgrade(); }} className="w-full py-4 rounded-xl">
+              <PrimaryButton 
+                onClick={() => { 
+                  playClickSound();
+                  setShowLimitModal(false); 
+                  onUpgrade(); 
+                }} 
+                onMouseEnter={playHoverSound}
+                className="w-full py-4 rounded-xl"
+              >
                 Upgrade to Pro
               </PrimaryButton>
               <button 
-                onClick={() => setShowLimitModal(false)}
+                onClick={() => {
+                  playModalCloseSound();
+                  setShowLimitModal(false);
+                }}
+                onMouseEnter={playHoverSound}
                 className="w-full py-4 text-archo-muted font-bold hover:text-archo-ink transition-colors"
               >
                 Maybe Later
@@ -365,7 +385,11 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
                   referrerPolicy="no-referrer"
                 />
                 <button 
-                  onClick={() => setSelectedImage(null)}
+                  onClick={() => {
+                    playClickSound();
+                    setSelectedImage(null);
+                  }}
+                  onMouseEnter={playHoverSound}
                   className="absolute top-1 right-1 bg-archo-ink/80 text-archo-cream p-1 rounded-full hover:bg-archo-ink transition-colors"
                 >
                   <X size={12} />
@@ -385,6 +409,7 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
           <div className="flex justify-between items-center px-3 pb-3">
             <button 
               onClick={handleFileUpload}
+              onMouseEnter={playHoverSound}
               className="p-3 text-archo-muted hover:text-archo-brass transition-colors flex items-center gap-2"
             >
               <Paperclip size={24} />
@@ -393,6 +418,7 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
             <PrimaryButton 
               onClick={() => requireAuth(handleSend)}
               disabled={isTyping}
+              onMouseEnter={playHoverSound}
               className="p-4 rounded-2xl group disabled:opacity-50"
             >
               <Send size={24} className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />

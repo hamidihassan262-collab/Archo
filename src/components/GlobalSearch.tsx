@@ -3,6 +3,7 @@ import { Search, FileText, Building2, ArrowRight, X, Clock, Sparkles } from 'luc
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import { MortgageCase, Lender } from '../types';
+import { playHoverSound, playClickSound, playModalOpenSound, playModalCloseSound, playSuccessSound, playErrorSound } from '../lib/sounds';
 
 interface GlobalSearchProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export default function GlobalSearch({ isOpen, onClose, onSelectCase, onSelectLe
       inputRef.current?.focus();
       setQuery('');
       setResults({ cases: [], lenders: [] });
+      playModalOpenSound();
     }
   }, [isOpen]);
 
@@ -61,8 +63,12 @@ export default function GlobalSearch({ isOpen, onClose, onSelectCase, onSelectLe
             lastUpdated: new Date(l.updated_at || l.created_at).toLocaleDateString()
           }))
         });
+        if ((casesRes.data?.length || 0) > 0 || (lendersRes.data?.length || 0) > 0) {
+          playSuccessSound();
+        }
       } catch (error) {
         console.error('Global search error:', error);
+        playErrorSound();
       } finally {
         setLoading(false);
       }
@@ -80,7 +86,10 @@ export default function GlobalSearch({ isOpen, onClose, onSelectCase, onSelectLe
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        onClick={onClose}
+        onClick={() => {
+          playModalCloseSound();
+          onClose();
+        }}
         className="absolute inset-0 bg-archo-ink/40 backdrop-blur-sm"
       />
       
@@ -100,7 +109,14 @@ export default function GlobalSearch({ isOpen, onClose, onSelectCase, onSelectLe
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <button onClick={onClose} className="p-2 hover:bg-archo-cream rounded-full transition-colors">
+          <button 
+            onClick={() => {
+              playModalCloseSound();
+              onClose();
+            }} 
+            onMouseEnter={playHoverSound}
+            className="p-2 hover:bg-archo-cream rounded-full transition-colors"
+          >
             <X size={20} className="text-archo-slate" />
           </button>
         </div>
@@ -135,9 +151,11 @@ export default function GlobalSearch({ isOpen, onClose, onSelectCase, onSelectLe
                       <button
                         key={c.id}
                         onClick={() => {
+                          playClickSound();
                           onSelectCase(c.id);
                           onClose();
                         }}
+                        onMouseEnter={playHoverSound}
                         className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-archo-cream border border-transparent hover:border-archo-brass/10 transition-all group"
                       >
                         <div className="flex items-center gap-4">
@@ -164,9 +182,11 @@ export default function GlobalSearch({ isOpen, onClose, onSelectCase, onSelectLe
                       <button
                         key={l.id}
                         onClick={() => {
+                          playClickSound();
                           onSelectLender(l.id);
                           onClose();
                         }}
+                        onMouseEnter={playHoverSound}
                         className="w-full flex items-center justify-between p-4 rounded-2xl hover:bg-archo-cream border border-transparent hover:border-archo-brass/10 transition-all group"
                       >
                         <div className="flex items-center gap-4">
