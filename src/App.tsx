@@ -12,6 +12,7 @@ import CriteriaExplorer from './components/CriteriaExplorer';
 import CopilotChat from './components/CopilotChat';
 import Compliance from './components/Compliance';
 import Threads from './components/Threads';
+import LineWaves from './components/LineWaves';
 import SettingsModal from './components/SettingsModal';
 import Auth from './components/Auth';
 import Pricing from './components/Pricing';
@@ -331,29 +332,54 @@ export default function App() {
           {/* Warm Gold Radial Gradient */}
           <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.08),transparent_70%)] -translate-y-1/4 translate-x-1/4 blur-3xl" />
           
-          {/* Background Threads */}
-          <div className="absolute inset-0 opacity-30">
-            <Threads
-              amplitude={3.6}
-              distance={0.9}
-              enableMouseInteraction={false}
-              color={[0.54, 0.45, 0.18]} // Archo Brass color normalized
-            />
-          </div>
+          {/* Background Threads - Only on non-LineWaves pages */}
+          {!(activeTab === 'cases' || activeTab === 'criteria' || activeTab === 'team') && (
+            <div className="absolute inset-0 opacity-30">
+              <Threads
+                amplitude={3.6}
+                distance={0.9}
+                enableMouseInteraction={false}
+                color={[0.54, 0.45, 0.18]} // Archo Brass color normalized
+              />
+            </div>
+          )}
 
-          {/* Background Waves - Extended vertically */}
-          <div className="absolute inset-0 opacity-[0.15]">
-            <Waves
-              lineColor="#D4AF37"
-              backgroundColor="transparent"
-              waveAmpX={40}
-              waveAmpY={25}
-              waveSpeedX={0.01}
-              waveSpeedY={0.004}
-              xGap={12}
-              yGap={36}
-            />
-          </div>
+          {/* Background Waves - Only on non-LineWaves pages */}
+          {!(activeTab === 'cases' || activeTab === 'criteria' || activeTab === 'team') && (
+            <div className="absolute inset-0 opacity-[0.15]">
+              <Waves
+                lineColor="#D4AF37"
+                backgroundColor="transparent"
+                waveAmpX={40}
+                waveAmpY={25}
+                waveSpeedX={0.01}
+                waveSpeedY={0.004}
+                xGap={12}
+                yGap={36}
+              />
+            </div>
+          )}
+
+          {/* Line Waves for specific pages */}
+          {(activeTab === 'cases' || activeTab === 'criteria' || activeTab === 'team') && (
+            <div className="absolute inset-0 opacity-60">
+              <LineWaves
+                speed={0.3}
+                innerLineCount={32}
+                outerLineCount={36}
+                warpIntensity={1}
+                rotation={-45}
+                edgeFadeWidth={0}
+                colorCycleSpeed={1}
+                brightness={0.4}
+                color1="#8B732E" // Archo Brass
+                color2="#B59410" // Archo Brass Light
+                color3="#D4AF37" // Archo Brass Pale
+                enableMouseInteraction
+                mouseInfluence={5}
+              />
+            </div>
+          )}
         </div>
 
         {/* Top Header Bar */}
