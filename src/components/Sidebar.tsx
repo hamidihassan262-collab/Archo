@@ -12,9 +12,10 @@ interface SidebarProps {
   onProfileClick: () => void;
   onSignInClick: () => void;
   userProfile: UserProfile;
+  hasProAccess: boolean;
 }
 
-export default function Sidebar({ activeTab, setActiveTab, onProfileClick, onSignInClick, userProfile }: SidebarProps) {
+export default function Sidebar({ activeTab, setActiveTab, onProfileClick, onSignInClick, userProfile, hasProAccess }: SidebarProps) {
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
@@ -28,11 +29,18 @@ export default function Sidebar({ activeTab, setActiveTab, onProfileClick, onSig
     { id: 'pricing', label: 'Pricing', icon: Gem },
   ];
 
-  if (userProfile.plan === 'company') {
+  if (userProfile.plan === 'company' || hasProAccess) {
     navItems.splice(5, 0, { id: 'team', label: 'Team Management', icon: Users });
   }
 
   const getPlanBadge = (plan: UserPlan) => {
+    if (hasProAccess && plan === 'free') {
+      return (
+        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-archo-brass text-archo-cream rounded text-[8px] font-bold uppercase tracking-tighter shadow-sm">
+          <Crown size={8} /> Pro (Key)
+        </div>
+      );
+    }
     switch (plan) {
       case 'pro':
         return (

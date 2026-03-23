@@ -21,9 +21,10 @@ interface CopilotChatProps {
   requireAuth: (cb: () => void) => void;
   userProfile: UserProfile;
   onUpgrade: () => void;
+  hasProAccess?: boolean;
 }
 
-export default function CopilotChat({ requireAuth, userProfile, onUpgrade }: CopilotChatProps) {
+export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasProAccess }: CopilotChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     { id: '1', role: 'assistant', text: "Hello Hassan. I'm Archo, your mortgage specialist AI. How can I help you with your cases or criteria research today?", sources: [] },
   ]);
@@ -32,7 +33,7 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade }: Cop
   const [showLimitModal, setShowLimitModal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const isFree = userProfile.plan === 'free';
+  const isFree = !hasProAccess;
   const messageLimit = 5;
   const messagesRemaining = isFree ? Math.max(0, messageLimit - userProfile.daily_message_count) : Infinity;
 

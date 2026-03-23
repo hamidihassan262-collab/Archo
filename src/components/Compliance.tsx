@@ -6,10 +6,11 @@ import { UserProfile } from '../types';
 import PrimaryButton from './PrimaryButton';
 import LockedFeature from './LockedFeature';
 
-export default function Compliance({ isAuthenticated, userProfile, onUpgrade }: { 
+export default function Compliance({ isAuthenticated, userProfile, onUpgrade, hasProAccess }: { 
   isAuthenticated: boolean;
   userProfile: UserProfile | null;
   onUpgrade: () => void;
+  hasProAccess?: boolean;
 }) {
   const [caseStats, setCaseStats] = useState({ total: 0, green: 0, amber: 0, red: 0 });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
@@ -191,7 +192,7 @@ export default function Compliance({ isAuthenticated, userProfile, onUpgrade }: 
           </div>
         </div>
 
-        {userProfile?.plan === 'free' && showLock && (
+        {!hasProAccess && showLock && (
           <LockedFeature 
             featureName="Compliance Dashboard"
             onUpgrade={onUpgrade}

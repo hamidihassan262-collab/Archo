@@ -6,9 +6,12 @@ import { UserPlan } from '../types';
 interface PricingProps {
   currentPlan: UserPlan;
   onUpgrade: (plan: UserPlan) => void;
+  onSecretKeySubmit?: (key: string) => void;
+  isKeyUnlocked?: boolean;
 }
 
-export default function Pricing({ currentPlan, onUpgrade }: PricingProps) {
+export default function Pricing({ currentPlan, onUpgrade, onSecretKeySubmit, isKeyUnlocked }: PricingProps) {
+  const [secretKey, setSecretKey] = React.useState('');
   const plans = [
     {
       id: 'free',
@@ -141,6 +144,42 @@ export default function Pricing({ currentPlan, onUpgrade }: PricingProps) {
         <button className="text-archo-brass font-bold hover:underline flex items-center gap-2 mx-auto">
           Contact Sales <ArrowRight size={16} />
         </button>
+      </div>
+
+      {/* Secret Key Section */}
+      <div className="max-w-md mx-auto bg-archo-ink/5 border border-archo-brass/10 rounded-2xl p-6 text-center space-y-4">
+        <div className="flex items-center justify-center gap-2 text-archo-brass mb-2">
+          <Zap size={18} />
+          <h4 className="text-sm font-bold uppercase tracking-widest">Have a Referral Key?</h4>
+        </div>
+        <p className="text-xs text-archo-slate font-serif italic">
+          Enter your special access key below to unlock premium features instantly.
+        </p>
+        <div className="flex gap-2">
+          <input 
+            type="text" 
+            value={secretKey}
+            onChange={(e) => setSecretKey(e.target.value)}
+            placeholder="Enter key..."
+            disabled={isKeyUnlocked}
+            className="flex-1 bg-archo-cream border border-archo-brass/20 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-archo-brass/10 disabled:opacity-50 disabled:cursor-not-allowed font-serif"
+          />
+          <button 
+            onClick={() => {
+              if (onSecretKeySubmit) onSecretKeySubmit(secretKey);
+              setSecretKey('');
+            }}
+            disabled={isKeyUnlocked || !secretKey.trim()}
+            className="bg-archo-ink text-archo-cream px-6 py-2.5 rounded-xl text-xs font-bold hover:bg-archo-ink/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isKeyUnlocked ? 'Unlocked' : 'Apply'}
+          </button>
+        </div>
+        {isKeyUnlocked && (
+          <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-tighter animate-pulse">
+            ✓ Pro Access Active via Referral Key
+          </p>
+        )}
       </div>
     </div>
   );

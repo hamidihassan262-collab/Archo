@@ -9,10 +9,11 @@ import LockedFeature from './LockedFeature';
 
 const STAGES: CaseStage[] = ['Lead', 'Fact-Find', 'Sourcing', 'Application', 'Offer', 'Completion'];
 
-export default function Dashboard({ requireAuth, userProfile, onUpgrade }: { 
+export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProAccess }: { 
   requireAuth: (cb: () => void) => void;
   userProfile: UserProfile | null;
   onUpgrade: () => void;
+  hasProAccess: boolean;
 }) {
   const [cases, setCases] = useState<MortgageCase[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +110,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade }: {
       }
 
       // Check case limit for free users
-      if (userProfile?.plan === 'free' && cases.length >= 3) {
+      if (!hasProAccess && cases.length >= 3) {
         setShowAddModal(false);
         setShowLimitModal(true);
         return;
@@ -206,7 +207,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade }: {
         <div className="flex items-center gap-4">
           <PrimaryButton 
             onClick={() => requireAuth(() => {
-              if (userProfile?.plan === 'free' && cases.length >= 3) {
+              if (!hasProAccess && cases.length >= 3) {
                 setShowLimitModal(true);
               } else {
                 setShowAddModal(true);
@@ -223,7 +224,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade }: {
       <div className="mb-12">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-[10px] font-bold uppercase tracking-[0.25em] text-archo-brass">Performance Analytics</h3>
-          {userProfile?.plan === 'free' && (
+          {!hasProAccess && (
             <span className="flex items-center gap-1.5 text-[10px] font-bold text-archo-gold uppercase tracking-wider bg-archo-gold/10 px-3 py-1 rounded-full border border-archo-gold/20">
               <Lock size={10} /> Pro Feature
             </span>
@@ -248,7 +249,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade }: {
             ))}
           </div>
 
-          {userProfile?.plan === 'free' && showLock && (
+          {!hasProAccess && showLock && (
             <LockedFeature 
               featureName="Detailed Case Analytics"
               onUpgrade={onUpgrade}
@@ -338,7 +339,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade }: {
                 <button 
                   onClick={() => {
                     requireAuth(() => {
-                      if (userProfile?.plan === 'free' && cases.length >= 3) {
+                      if (!hasProAccess && cases.length >= 3) {
                         setShowLimitModal(true);
                       } else {
                         setNewCase(prev => ({ ...prev, stage }));

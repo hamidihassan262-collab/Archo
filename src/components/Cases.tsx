@@ -11,9 +11,10 @@ interface CasesProps {
   requireAuth: (cb: () => void) => void;
   userProfile: UserProfile;
   onUpgrade: () => void;
+  hasProAccess?: boolean;
 }
 
-export default function Cases({ requireAuth, userProfile, onUpgrade }: CasesProps) {
+export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAccess }: CasesProps) {
   const [cases, setCases] = useState<MortgageCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,7 +38,7 @@ export default function Cases({ requireAuth, userProfile, onUpgrade }: CasesProp
     stage: 'Lead' as CaseStage
   });
 
-  const isFree = userProfile.plan === 'free';
+  const isFree = !hasProAccess;
   const caseLimit = 3;
 
   const loadCases = useCallback(async () => {

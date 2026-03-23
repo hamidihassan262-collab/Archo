@@ -138,9 +138,10 @@ interface CriteriaExplorerProps {
   requireAuth: (cb: () => void) => void;
   userPlan: UserPlan;
   onUpgrade: () => void;
+  hasProAccess?: boolean;
 }
 
-export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade }: CriteriaExplorerProps) {
+export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade, hasProAccess }: CriteriaExplorerProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [ltvFilter, setLtvFilter] = useState<number>(100);
   const [incomeFilter, setIncomeFilter] = useState<number>(0);
@@ -152,7 +153,7 @@ export default function CriteriaExplorer({ requireAuth, userPlan, onUpgrade }: C
   const [showSpecialistOnly, setShowSpecialistOnly] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
 
-  const isFree = userPlan === 'free';
+  const isFree = !hasProAccess;
 
   useEffect(() => {
     loadLenders();

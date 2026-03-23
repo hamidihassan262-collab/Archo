@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { LogIn, UserPlus, Mail, Lock, ArrowRight, AlertCircle, X } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, ArrowRight, AlertCircle, X, LogOut, User, Shield, Crown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PrimaryButton from './PrimaryButton';
+import { UserProfile } from '../types';
 
 interface AuthProps {
   onClose?: () => void;
+  userProfile?: UserProfile | null;
+  onLogout?: () => void;
 }
 
-export default function Auth({ onClose }: AuthProps) {
+export default function Auth({ onClose, userProfile, onLogout }: AuthProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,6 +58,78 @@ export default function Auth({ onClose }: AuthProps) {
     }
   };
 
+  if (userProfile) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-archo-ink/60 backdrop-blur-sm p-4 overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-archo-brass blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-archo-brass blur-[120px]" />
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="w-full max-w-md bg-archo-cream rounded-3xl p-8 shadow-2xl border border-archo-brass/20 relative z-10"
+        >
+          {onClose && (
+            <button 
+              onClick={onClose}
+              className="absolute top-6 right-6 text-archo-slate hover:text-archo-brass transition-colors p-2 hover:bg-archo-brass/5 rounded-full"
+            >
+              <X size={20} />
+            </button>
+          )}
+
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 bg-archo-brass/10 rounded-full flex items-center justify-center text-archo-brass mx-auto mb-4 border-2 border-archo-brass/20 relative">
+              <User size={40} />
+              <div className="absolute -bottom-1 -right-1 bg-archo-brass text-archo-cream p-1.5 rounded-full border-2 border-archo-cream shadow-sm">
+                {userProfile.plan === 'free' ? <Shield size={12} /> : <Crown size={12} />}
+              </div>
+            </div>
+            <h2 className="text-3xl font-serif font-bold text-archo-ink">
+              {userProfile.full_name}
+            </h2>
+            <p className="text-archo-slate mt-1 font-serif italic text-sm">
+              {userProfile.email}
+            </p>
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-archo-brass/10 rounded-full border border-archo-brass/20 text-archo-brass text-[10px] font-bold uppercase tracking-widest">
+              {userProfile.plan.toUpperCase()} Plan
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="bg-archo-paper border border-archo-brass/10 rounded-2xl p-6 space-y-4">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-archo-muted font-bold uppercase tracking-widest">Role</span>
+                <span className="text-archo-ink font-serif font-bold">{userProfile.role}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-archo-muted font-bold uppercase tracking-widest">Daily Messages</span>
+                <span className="text-archo-ink font-serif font-bold">{userProfile.daily_message_count} / 5</span>
+              </div>
+              <div className="w-full h-1.5 bg-archo-brass/10 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-archo-brass transition-all duration-500" 
+                  style={{ width: `${Math.min((userProfile.daily_message_count / 5) * 100, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            <PrimaryButton 
+              onClick={() => {
+                if (onLogout) onLogout();
+                if (onClose) onClose();
+              }}
+              className="w-full py-4 rounded-2xl flex items-center justify-center gap-2 bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-600/20"
+            >
+              <LogOut size={18} /> Sign Out
+            </PrimaryButton>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-archo-ink/60 backdrop-blur-sm p-4 overflow-hidden">
       {/* Background elements */}

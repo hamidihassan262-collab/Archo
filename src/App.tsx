@@ -40,6 +40,42 @@ export default function App() {
     email: ''
   });
 
+  const [isKeyUnlocked, setIsKeyUnlocked] = useState(false);
+  const [typedKey, setTypedKey] = useState('');
+
+  const hasProAccess = userProfile.plan !== 'free' || isKeyUnlocked;
+
+  const handleSecretKeySubmit = (key: string) => {
+    if (key.includes('Aftrbirth')) {
+      setIsKeyUnlocked(true);
+      setTypedKey('');
+      // Add a small visual feedback
+      const notification = document.createElement('div');
+      notification.className = 'fixed bottom-8 right-8 bg-archo-ink text-archo-brass-pale px-6 py-3 rounded-2xl border border-archo-brass/30 shadow-2xl z-[200] font-serif italic animate-bounce';
+      notification.innerText = 'Pro Access Unlocked';
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
+      console.log('Pro Access Unlocked via Secret Key!');
+    }
+  };
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Don't capture if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      
+      const newKey = (typedKey + e.key).slice(-20);
+      setTypedKey(newKey);
+      
+      if (newKey.includes('Aftrbirth')) {
+        handleSecretKeySubmit('Aftrbirth');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [typedKey]);
+
   const requireAuth = (callback: () => void) => {
     if (!isAuthenticated) {
       setIsAuthModalOpen(true);
@@ -109,6 +145,22 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
+    setUserProfile({
+      id: '',
+      plan: 'free',
+      company_id: null,
+      role: 'broker',
+      daily_message_count: 0,
+      weekly_message_count: 0,
+      last_message_date: null,
+      full_name: 'Guest User',
+      email: ''
+    });
+  };
+
   const handleUpgrade = async (plan: UserPlan) => {
     if (!isAuthenticated) {
       setIsAuthModalOpen(true);
@@ -123,7 +175,28 @@ export default function App() {
   };
 
   const renderContent = () => {
-    const isFree = userProfile.plan === 'free';
+    const proTabs = ['cases', 'copilot', 'criteria', 'compliance', 'team'];
+    
+    if (proTabs.includes(activeTab) && !hasProAccess) {
+      return (
+        <div className="relative h-full flex items-center justify-center">
+          {activeTab === 'dashboard' && (
+            <Dashboard 
+              requireAuth={requireAuth} 
+              userProfile={userProfile}
+              onUpgrade={() => setActiveTab('pricing')}
+              hasProAccess={hasProAccess}
+            />
+          )}
+          <LockedFeature 
+            featureName={activeTab === 'copilot' ? 'Archo Chat' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+            onUpgrade={() => setActiveTab('pricing')}
+            onClose={() => setActiveTab('dashboard')}
+            show={true}
+          />
+        </div>
+      );
+    }
 
     switch (activeTab) {
       case 'dashboard':
@@ -131,27 +204,45 @@ export default function App() {
           requireAuth={requireAuth} 
           userProfile={userProfile}
           onUpgrade={() => setActiveTab('pricing')}
+          hasProAccess={hasProAccess}
         />;
       case 'cases':
         return <Cases 
           requireAuth={requireAuth} 
           userProfile={userProfile}
           onUpgrade={() => setActiveTab('pricing')}
+          hasProAccess={hasProAccess}
         />;
       case 'criteria':
-        return <CriteriaExplorer requireAuth={requireAuth} userPlan={userProfile.plan} onUpgrade={() => setActiveTab('pricing')} />;
+        return <CriteriaExplorer 
+          requireAuth={requireAuth} 
+          userPlan={userProfile.plan} 
+          onUpgrade={() => setActiveTab('pricing')} 
+          hasProAccess={hasProAccess}
+        />;
       case 'copilot':
-        return <CopilotChat requireAuth={requireAuth} userProfile={userProfile} onUpgrade={() => setActiveTab('pricing')} />;
+        return <CopilotChat 
+          requireAuth={requireAuth} 
+          userProfile={userProfile} 
+          onUpgrade={() => setActiveTab('pricing')} 
+          hasProAccess={hasProAccess}
+        />;
       case 'compliance':
         return <Compliance 
           isAuthenticated={isAuthenticated} 
           userProfile={userProfile}
           onUpgrade={() => setActiveTab('pricing')}
+          hasProAccess={hasProAccess}
         />;
       case 'team':
         return <TeamManagement userProfile={userProfile} />;
       case 'pricing':
-        return <Pricing currentPlan={userProfile.plan} onUpgrade={handleUpgrade} />;
+        return <Pricing 
+          currentPlan={userProfile.plan} 
+          onUpgrade={handleUpgrade} 
+          onSecretKeySubmit={handleSecretKeySubmit}
+          isKeyUnlocked={isKeyUnlocked}
+        />;
       case 'settings':
         return <Compliance 
           isAuthenticated={isAuthenticated} 
@@ -181,6 +272,7 @@ export default function App() {
         onProfileClick={() => setIsSettingsOpen(true)}
         onSignInClick={() => setIsAuthModalOpen(true)}
         userProfile={userProfile}
+        hasProAccess={hasProAccess}
       />
       
       <main className="flex-1 ml-64 min-h-screen flex flex-col relative">
@@ -227,8 +319,12 @@ export default function App() {
             </button>
             <div className="h-8 w-[1px] bg-archo-brass/10"></div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-archo-brass uppercase tracking-widest">Solo Plan</span>
-              <div className="px-2 py-0.5 bg-archo-brass text-archo-cream rounded text-[10px] font-bold uppercase tracking-tighter">Pro</div>
+              <span className="text-[10px] font-bold text-archo-brass uppercase tracking-widest">
+                {hasProAccess ? (userProfile.plan === 'company' ? 'Company Plan' : 'Pro Plan') : 'Solo Plan'}
+              </span>
+              <div className="px-2 py-0.5 bg-archo-brass text-archo-cream rounded text-[10px] font-bold uppercase tracking-tighter">
+                {hasProAccess ? (userProfile.plan === 'company' ? 'Enterprise' : 'Pro') : 'Free'}
+              </div>
             </div>
           </div>
         </header>
@@ -247,7 +343,11 @@ export default function App() {
       />
 
       {isAuthModalOpen && (
-        <Auth onClose={() => setIsAuthModalOpen(false)} />
+        <Auth 
+          onClose={() => setIsAuthModalOpen(false)} 
+          userProfile={isAuthenticated ? userProfile : null}
+          onLogout={handleLogout}
+        />
       )}
 
       <GlobalSearch 
