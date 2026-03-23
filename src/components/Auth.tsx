@@ -3,15 +3,17 @@ import { motion } from 'motion/react';
 import { LogIn, UserPlus, Mail, Lock, ArrowRight, AlertCircle, X, LogOut, User, Shield, Crown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PrimaryButton from './PrimaryButton';
+import ArchoLogo from './Logo';
 import { UserProfile } from '../types';
 
 interface AuthProps {
   onClose?: () => void;
   userProfile?: UserProfile | null;
   onLogout?: () => void;
+  onBypass?: () => void;
 }
 
-export default function Auth({ onClose, userProfile, onLogout }: AuthProps) {
+export default function Auth({ onClose, userProfile, onLogout, onBypass }: AuthProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -152,14 +154,9 @@ export default function Auth({ onClose, userProfile, onLogout }: AuthProps) {
           </button>
         )}
 
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-archo-brass rounded-2xl flex items-center justify-center text-archo-cream mx-auto mb-4 shadow-lg">
-            {isLogin ? <LogIn size={32} /> : <UserPlus size={32} />}
-          </div>
-          <h2 className="text-3xl font-serif font-bold text-archo-ink">
-            {isLogin ? 'Welcome Back' : 'Join Archo'}
-          </h2>
-          <p className="text-archo-slate mt-2 font-serif italic">
+        <div className="text-center mb-10">
+          <ArchoLogo className="w-56 mx-auto" />
+          <p className="text-archo-slate mt-4 font-serif italic">
             {isLogin ? 'Sign in to manage your mortgage pipeline.' : 'Start your professional broker journey today.'}
           </p>
         </div>
@@ -219,13 +216,23 @@ export default function Auth({ onClose, userProfile, onLogout }: AuthProps) {
           </PrimaryButton>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-archo-brass/10 text-center">
+        <div className="mt-8 pt-6 border-t border-archo-brass/10 text-center space-y-4">
           <button 
             onClick={() => setIsLogin(!isLogin)}
-            className="text-xs font-serif font-bold text-archo-slate hover:text-archo-brass transition-colors"
+            className="text-xs font-serif font-bold text-archo-slate hover:text-archo-brass transition-colors block w-full"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>
+
+          {onBypass && (
+            <button 
+              type="button"
+              onClick={onBypass}
+              className="w-full py-3 rounded-xl bg-rose-600/10 text-rose-600 text-[10px] font-bold uppercase tracking-widest border border-rose-600/20 hover:bg-rose-600 hover:text-white transition-all"
+            >
+              Temporary Bypass (Demo Mode)
+            </button>
+          )}
         </div>
       </motion.div>
     </div>

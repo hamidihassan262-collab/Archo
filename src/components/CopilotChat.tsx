@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, User, Bot, Paperclip, Search, Quote, Loader2, AlertCircle } from 'lucide-react';
+import { Send, Sparkles, User, Bot, Paperclip, Search, Quote, Loader2, AlertCircle, X } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import Markdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
@@ -15,6 +15,7 @@ interface Message {
   role: 'user' | 'assistant';
   text: string;
   sources: { lender: string; text: string }[];
+  image?: { data: string; mimeType: string };
 }
 
 interface CopilotChatProps {
@@ -31,7 +32,9 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{ data: string; mimeType: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isFree = !hasProAccess;
   const messageLimit = 5;
@@ -63,7 +66,8 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
                 id: newMessage.id,
                 role: newMessage.role as 'user' | 'assistant',
                 text: newMessage.content,
-                sources: []
+                sources: newMessage.metadata?.sources || [],
+                image: newMessage.metadata?.image || undefined
               }];
             });
           }
@@ -91,7 +95,8 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
           id: msg.id,
           role: msg.role as 'user' | 'assistant',
           text: msg.content,
-          sources: msg.metadata?.sources || []
+          sources: msg.metadata?.sources || [],
+          image: msg.metadata?.image || undefined
         }));
         setMessages(history);
       }
@@ -100,8 +105,28 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = (reader.result as string).split(',')[1];
+      setSelectedImage({
+        data: base64String,
+        mimeType: file.type
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSend = async () => {
-    if (!input.trim() || isTyping) return;
+    if ((!input.trim() && !selectedImage) || isTyping) return;
 
     if (isFree && userProfile.daily_message_count >= messageLimit) {
       setShowLimitModal(true);
@@ -113,11 +138,13 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
       id: Date.now().toString(),
       role: 'user',
       text: messageText,
-      sources: []
+      sources: [],
+      image: selectedImage || undefined
     };
 
     setMessages(prev => [...prev, userMsg]);
     setInput('');
+    setSelectedImage(null);
     setIsTyping(true);
 
     // Increment message count in DB
@@ -130,7 +157,8 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
         .insert({
           content: messageText,
           role: 'user',
-          session_id: currentSessionId
+          session_id: currentSessionId,
+          metadata: { image: userMsg.image }
         });
     } catch (err) {
       console.error('Failed to save user message:', err);
@@ -150,9 +178,20 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
         : "No specific lender criteria found in knowledge base. Use your general knowledge but advise caution.";
 
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      
+      const parts: any[] = [{ text: `${context}\n\nUser Question: ${messageText}` }];
+      if (userMsg.image) {
+        parts.push({
+          inlineData: {
+            data: userMsg.image.data,
+            mimeType: userMsg.image.mimeType
+          }
+        });
+      }
+
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `${context}\n\nUser Question: ${messageText}`,
+        contents: { parts },
         config: {
           systemInstruction: "You are Archo, a professional mortgage specialist AI for UK mortgage brokers. You help with lender criteria, affordability, and case placement. Be concise, professional, and helpful. If you mention specific lenders, try to format them clearly. Always cite the sources provided in the context if they are relevant.",
         }
@@ -196,7 +235,7 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
       onUpgrade();
       return;
     }
-    alert('File attachment functionality coming soon for Pro users!');
+    fileInputRef.current?.click();
   };
 
   return (
@@ -240,6 +279,16 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
                 ? 'bg-archo-ink text-archo-cream' 
                 : 'bg-archo-cream/80 backdrop-blur-sm text-archo-ink'
             }`}>
+              {msg.image && (
+                <div className="mb-4 overflow-hidden rounded-xl border border-archo-brass/20">
+                  <img 
+                    src={`data:${msg.image.mimeType};base64,${msg.image.data}`} 
+                    alt="Attached" 
+                    className="max-w-full h-auto object-contain max-h-64"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              )}
               <div className={`markdown-body text-base leading-relaxed font-sans tracking-tight ${msg.role === 'assistant' ? 'font-medium' : ''}`}>
                 <Markdown>{msg.text}</Markdown>
               </div>
@@ -298,6 +347,33 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
         </div>
         
         <div className="bg-archo-cream border border-archo-brass/20 rounded-3xl p-3 shadow-2xl focus-within:ring-4 focus-within:ring-archo-brass/5 transition-all">
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            accept="image/*" 
+            className="hidden" 
+          />
+          
+          {selectedImage && (
+            <div className="px-5 pt-3 relative group">
+              <div className="w-24 h-24 rounded-xl overflow-hidden border-2 border-archo-brass/30 relative">
+                <img 
+                  src={`data:${selectedImage.mimeType};base64,${selectedImage.data}`} 
+                  alt="Preview" 
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <button 
+                  onClick={() => setSelectedImage(null)}
+                  className="absolute top-1 right-1 bg-archo-ink/80 text-archo-cream p-1 rounded-full hover:bg-archo-ink transition-colors"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            </div>
+          )}
+
           <textarea
             rows={1}
             value={input}

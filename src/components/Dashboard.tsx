@@ -34,8 +34,41 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
 
   const loadCases = useCallback(async () => {
     try {
+      if (userProfile?.id === 'demo-user') {
+        // For demo user, if cases are empty, initialize with some mock data
+        if (cases.length === 0) {
+          setCases([
+            {
+              id: 'demo-case-1',
+              clientName: 'John & Jane Smith',
+              propertyValue: 450000,
+              loanAmount: 337500,
+              ltv: 75,
+              stage: 'Application',
+              lastActionDate: new Date().toISOString().split('T')[0],
+              ragStatus: 'Green'
+            },
+            {
+              id: 'demo-case-2',
+              clientName: 'Robert Brown',
+              propertyValue: 280000,
+              loanAmount: 210000,
+              ltv: 75,
+              stage: 'Lead',
+              lastActionDate: new Date().toISOString().split('T')[0],
+              ragStatus: 'Amber'
+            }
+          ]);
+        }
+        setLoading(false);
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('cases')
@@ -103,6 +136,31 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
     e.preventDefault();
     setModalError(null);
     try {
+      if (userProfile?.id === 'demo-user') {
+        const newDemoCase: MortgageCase = {
+          id: `demo-${Math.random().toString(36).substr(2, 9)}`,
+          clientName: newCase.clientName,
+          stage: newCase.stage,
+          propertyValue: Number(newCase.propertyValue),
+          loanAmount: Number(newCase.loanAmount),
+          ltv: Number(newCase.ltv) || Math.round((Number(newCase.loanAmount) / Number(newCase.propertyValue)) * 100),
+          ragStatus: newCase.statusColour as any,
+          lastActionDate: new Date().toISOString().split('T')[0]
+        };
+        setCases(prev => [newDemoCase, ...prev]);
+        setShowAddModal(false);
+        setNewCase({ 
+          clientName: '', 
+          propertyValue: '', 
+          loanAmount: '', 
+          ltv: '', 
+          statusColour: 'Green', 
+          assignedTo: 'Hassan Hamidi',
+          stage: 'Lead' 
+        });
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setModalError('You must be logged in to create a case.');
@@ -160,6 +218,12 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
     if (e) e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this case?')) return;
     try {
+      if (userProfile?.id === 'demo-user') {
+        setCases(prev => prev.filter(c => c.id !== id));
+        if (selectedCase?.id === id) setSelectedCase(null);
+        return;
+      }
+
       const { error } = await supabase
         .from('cases')
         .delete()
@@ -176,6 +240,14 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
 
   const handleUpdateStage = async (id: string, newStage: CaseStage) => {
     try {
+      if (userProfile?.id === 'demo-user') {
+        setCases(prev => prev.map(c => c.id === id ? { ...c, stage: newStage } : c));
+        if (selectedCase?.id === id) {
+          setSelectedCase(prev => prev ? { ...prev, stage: newStage } : null);
+        }
+        return;
+      }
+
       const { error } = await supabase
         .from('cases')
         .update({ stage: newStage.toLowerCase() })
@@ -199,10 +271,10 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
 
   return (
     <div className="p-8 relative z-10">
-      <header className="mb-10 flex justify-between items-end">
+      <header className="mb-14 flex justify-between items-end">
         <div>
           <h2 className="text-4xl font-serif font-bold text-archo-ink tracking-tight">Case Pipeline</h2>
-          <p className="text-archo-slate mt-2 font-serif italic">You have {cases.length} active cases this month.</p>
+          <p className="text-lg text-archo-slate/80 mt-3 font-serif italic">You have {cases.length} active cases this month.</p>
         </div>
         <div className="flex items-center gap-4">
           <PrimaryButton 
@@ -213,7 +285,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
                 setShowAddModal(true);
               }
             })}
-            className="px-8 py-3 rounded-full text-sm flex items-center gap-2"
+            className="px-8 py-3 rounded-full text-sm flex items-center gap-2 shadow-lg shadow-archo-brass/10"
           >
             New Case <ArrowRight size={16} />
           </PrimaryButton>
@@ -221,11 +293,14 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
       </header>
 
       {/* Analytics Gating */}
-      <div className="mb-12">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.25em] text-archo-brass">Performance Analytics</h3>
+      <div className="mb-16">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4 flex-1">
+            <h3 className="text-[11px] font-bold uppercase tracking-[0.4em] text-archo-brass whitespace-nowrap">Performance Analytics</h3>
+            <div className="h-[1px] flex-1 bg-gradient-to-r from-archo-gold/40 to-transparent"></div>
+          </div>
           {!hasProAccess && (
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-archo-gold uppercase tracking-wider bg-archo-gold/10 px-3 py-1 rounded-full border border-archo-gold/20">
+            <span className="flex items-center gap-1.5 text-[10px] font-bold text-archo-gold uppercase tracking-wider bg-archo-gold/10 px-3 py-1 rounded-full border border-archo-gold/20 ml-4">
               <Lock size={10} /> Pro Feature
             </span>
           )}
@@ -239,13 +314,17 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
               { label: 'Avg. Case Time', value: '18 Days', trend: '-2 Days' },
               { label: 'Pipeline Value', value: '£12.8M', trend: '+8%' }
             ].map((stat, i) => (
-              <div key={i} className="bg-archo-paper border border-archo-brass/10 rounded-2xl p-6">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-archo-muted mb-2">{stat.label}</p>
+              <motion.div 
+                key={i} 
+                whileHover={{ y: -4, boxShadow: "0 12px 30px -10px rgba(139, 115, 46, 0.15)" }}
+                className="bg-[#FEFDF5] border border-archo-gold/20 border-l-[3px] border-l-archo-gold rounded-2xl p-[24px] transition-all duration-300"
+              >
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-archo-muted mb-3">{stat.label}</p>
                 <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-serif font-bold text-archo-ink">{stat.value}</span>
-                  <span className="text-[10px] font-bold text-emerald-600">{stat.trend}</span>
+                  <span className="text-[28px] font-serif font-bold text-archo-ink leading-none">{stat.value}</span>
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">{stat.trend}</span>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
 
@@ -259,18 +338,20 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
         </div>
       </div>
 
-      <div className="flex gap-8 overflow-x-auto pb-8 min-h-[calc(100vh-250px)]">
-        {STAGES.map((stage) => (
-          <div key={stage} className="kanban-column">
-            <div className="flex items-center justify-between px-2 mb-4">
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.25em] text-archo-brass">{stage}</h3>
-              <span className="text-[10px] bg-archo-brass/10 text-archo-brass px-2.5 py-1 rounded-full font-bold border border-archo-brass/20">
-                {cases.filter(c => c.stage === stage).length}
-              </span>
-            </div>
-            
-            <div className="flex flex-col gap-4">
-              {cases.filter(c => c.stage === stage).map((item) => (
+      <div className="flex gap-8 overflow-x-auto pb-12 min-h-[calc(100vh-250px)]">
+        {STAGES.map((stage) => {
+          const stageCases = cases.filter(c => c.stage === stage);
+          return (
+            <div key={stage} className="kanban-column min-w-[300px]">
+              <div className="flex items-center justify-between px-4 py-2.5 mb-6 bg-archo-brass/5 rounded-full border border-archo-gold/10 border-b-archo-gold/30">
+                <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-archo-brass">{stage}</h3>
+                <span className="text-[10px] bg-archo-gold text-archo-cream px-2.5 py-0.5 rounded-full font-bold border border-archo-gold/50 shadow-sm">
+                  {stageCases.length}
+                </span>
+              </div>
+              
+              <div className="flex flex-col gap-5">
+                {stageCases.map((item) => (
                 <BorderGlow
                   key={item.id}
                   glowColor="45 50 50"
@@ -327,34 +408,40 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
               </BorderGlow>
             ))}
               
-              <BorderGlow
-                glowColor="45 50 50"
-                colors={['#8B732E', '#B59410', '#D4AF37']}
-                backgroundColor="transparent"
-                borderRadius={16}
-                glowRadius={20}
-                glowIntensity={0.4}
-                className="w-full"
-              >
-                <button 
-                  onClick={() => {
-                    requireAuth(() => {
-                      if (!hasProAccess && cases.length >= 3) {
-                        setShowLimitModal(true);
-                      } else {
-                        setNewCase(prev => ({ ...prev, stage }));
-                        setShowAddModal(true);
-                      }
-                    });
-                  }}
-                  className="w-full py-4 border border-dashed border-archo-brass/30 rounded-2xl text-archo-brass hover:bg-archo-brass/5 hover:border-archo-brass transition-all text-[10px] font-bold uppercase tracking-[0.2em]"
+                <BorderGlow
+                  glowColor="212 175 55"
+                  colors={['#8B732E', '#B59410', '#D4AF37']}
+                  backgroundColor="transparent"
+                  borderRadius={16}
+                  glowRadius={20}
+                  glowIntensity={0.4}
+                  className="w-full"
                 >
-                  + Add Case
-                </button>
-              </BorderGlow>
+                  <motion.button 
+                    animate={cases.length === 0 ? {
+                      scale: [1, 1.02, 1],
+                      borderColor: ['rgba(212, 175, 55, 0.3)', 'rgba(212, 175, 55, 0.6)', 'rgba(212, 175, 55, 0.3)']
+                    } : {}}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    onClick={() => {
+                      requireAuth(() => {
+                        if (!hasProAccess && cases.length >= 3) {
+                          setShowLimitModal(true);
+                        } else {
+                          setNewCase(prev => ({ ...prev, stage }));
+                          setShowAddModal(true);
+                        }
+                      });
+                    }}
+                    className="w-full py-5 border-2 border-dashed border-archo-gold/40 rounded-2xl text-archo-gold hover:bg-archo-gold/5 hover:border-archo-gold transition-all text-[11px] font-bold uppercase tracking-[0.25em] flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16} /> Add Case
+                  </motion.button>
+                </BorderGlow>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Case Detail Modal */}

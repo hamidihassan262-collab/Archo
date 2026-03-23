@@ -43,8 +43,44 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
 
   const loadCases = useCallback(async () => {
     try {
+      if (userProfile?.id === 'demo-user') {
+        if (cases.length === 0) {
+          setCases([
+            {
+              id: 'demo-case-1',
+              clientName: 'John & Jane Smith',
+              propertyValue: 450000,
+              loanAmount: 337500,
+              ltv: 75,
+              stage: 'Application',
+              lastActionDate: new Date().toISOString().split('T')[0],
+              ragStatus: 'Green',
+              assignedTo: 'Hassan Hamidi',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'demo-case-2',
+              clientName: 'Robert Brown',
+              propertyValue: 280000,
+              loanAmount: 210000,
+              ltv: 75,
+              stage: 'Lead',
+              lastActionDate: new Date().toISOString().split('T')[0],
+              ragStatus: 'Amber',
+              assignedTo: 'Hassan Hamidi',
+              createdAt: new Date().toISOString()
+            }
+          ]);
+        }
+        setLoading(false);
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
       const { data, error } = await supabase
         .from('cases')
@@ -118,6 +154,25 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
     }
 
     try {
+      if (userProfile?.id === 'demo-user') {
+        const newDemoCase: MortgageCase = {
+          id: `demo-${Math.random().toString(36).substr(2, 9)}`,
+          clientName: formData.clientName,
+          stage: formData.stage,
+          propertyValue: Number(formData.propertyValue),
+          loanAmount: Number(formData.loanAmount),
+          ltv: Number(formData.ltv) || Math.round((Number(formData.loanAmount) / Number(formData.propertyValue)) * 100),
+          ragStatus: formData.statusColour as any,
+          lastActionDate: new Date().toISOString().split('T')[0],
+          assignedTo: formData.assignedTo,
+          createdAt: new Date().toISOString()
+        };
+        setCases(prev => [newDemoCase, ...prev]);
+        setShowAddModal(false);
+        resetForm();
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -160,6 +215,23 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
     if (!selectedCase) return;
     setModalError(null);
     try {
+      if (userProfile?.id === 'demo-user') {
+        setCases(prev => prev.map(c => c.id === selectedCase.id ? {
+          ...c,
+          clientName: formData.clientName,
+          stage: formData.stage,
+          propertyValue: Number(formData.propertyValue),
+          loanAmount: Number(formData.loanAmount),
+          ltv: Number(formData.ltv) || Math.round((Number(formData.loanAmount) / Number(formData.propertyValue)) * 100),
+          ragStatus: formData.statusColour as any,
+          assignedTo: formData.assignedTo
+        } : c));
+        setShowEditModal(false);
+        setSelectedCase(null);
+        resetForm();
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setModalError('You must be logged in to update a case.');
@@ -193,6 +265,11 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this case?')) return;
     try {
+      if (userProfile?.id === 'demo-user') {
+        setCases(prev => prev.filter(c => c.id !== id));
+        return;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         alert('You must be logged in to delete a case.');
@@ -212,6 +289,11 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
 
   const handleUpdateCaseStage = async (id: string, newStage: CaseStage) => {
     try {
+      if (userProfile?.id === 'demo-user') {
+        setCases(prev => prev.map(c => c.id === id ? { ...c, stage: newStage } : c));
+        return;
+      }
+
       const { error } = await supabase
         .from('cases')
         .update({ stage: newStage.toLowerCase() })

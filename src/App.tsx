@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
+import Waves from './components/Waves';
 import Dashboard from './components/Dashboard';
 import Cases from './components/Cases';
 import CriteriaExplorer from './components/CriteriaExplorer';
@@ -22,6 +23,8 @@ import { supabase } from './lib/supabase';
 import { UserProfile, UserPlan, UserRole } from './types';
 import { getUserProfile, updatePlan } from './services/pricingService';
 
+import Onboarding from './components/Onboarding';
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -37,11 +40,14 @@ export default function App() {
     weekly_message_count: 0,
     last_message_date: null,
     full_name: 'Guest User',
-    email: ''
+    email: '',
+    onboarding_completed: true // Default to true for guest, but we'll check auth
   });
 
   const [isKeyUnlocked, setIsKeyUnlocked] = useState(false);
   const [typedKey, setTypedKey] = useState('');
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const hasProAccess = userProfile.plan !== 'free' || isKeyUnlocked;
 
@@ -57,6 +63,25 @@ export default function App() {
       setTimeout(() => notification.remove(), 3000);
       console.log('Pro Access Unlocked via Secret Key!');
     }
+  };
+
+  const handleBypassAuth = () => {
+    setIsAuthenticated(true);
+    setIsAuthModalOpen(false);
+    setUserProfile({
+      id: 'demo-user',
+      plan: 'pro',
+      company_id: null,
+      role: 'broker',
+      daily_message_count: 0,
+      weekly_message_count: 0,
+      last_message_date: null,
+      full_name: 'Demo Broker',
+      email: 'demo@archo.ai',
+      onboarding_completed: true
+    });
+    setShowOnboarding(false);
+    localStorage.setItem('archo_onboarding_dismissed', 'true');
   };
 
   useEffect(() => {
@@ -92,6 +117,10 @@ export default function App() {
         email,
         full_name: profile.full_name || 'Hassan Hamidi'
       });
+      
+      if (profile.onboarding_completed === false) {
+        setShowOnboarding(true);
+      }
     }
   };
 
@@ -103,6 +132,11 @@ export default function App() {
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
+        // If not authenticated, check if we should show onboarding for guest
+        const onboardingStep = localStorage.getItem('archo_onboarding_step');
+        if (onboardingStep || !localStorage.getItem('archo_onboarding_dismissed')) {
+          setShowOnboarding(true);
+        }
       }
     };
     initAuth();
@@ -124,7 +158,8 @@ export default function App() {
           weekly_message_count: 0,
           last_message_date: null,
           full_name: 'Guest User',
-          email: ''
+          email: '',
+          onboarding_completed: true
         });
       }
     });
@@ -266,6 +301,19 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex">
+      {showOnboarding && (
+        <Onboarding 
+          onComplete={() => {
+            setShowOnboarding(false);
+            localStorage.setItem('archo_onboarding_dismissed', 'true');
+          }}
+          onSignIn={() => {
+            setShowOnboarding(false);
+            setIsAuthModalOpen(true);
+          }}
+        />
+      )}
+      
       <Sidebar 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
@@ -273,17 +321,39 @@ export default function App() {
         onSignInClick={() => setIsAuthModalOpen(true)}
         userProfile={userProfile}
         hasProAccess={hasProAccess}
+        isCollapsed={isSidebarCollapsed}
+        setIsCollapsed={setIsSidebarCollapsed}
       />
       
-      <main className="flex-1 ml-64 min-h-screen flex flex-col relative">
-        {/* Background Threads */}
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden opacity-40">
-          <Threads
-            amplitude={3.6}
-            distance={0.9}
-            enableMouseInteraction={false}
-            color={[0.54, 0.45, 0.18]} // Archo Brass color normalized
-          />
+      <main className={`flex-1 ${isSidebarCollapsed ? 'ml-20' : 'ml-64'} min-h-screen flex flex-col relative transition-all duration-300 ease-in-out`}>
+        {/* Background Elements */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+          {/* Warm Gold Radial Gradient */}
+          <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.08),transparent_70%)] -translate-y-1/4 translate-x-1/4 blur-3xl" />
+          
+          {/* Background Threads */}
+          <div className="absolute inset-0 opacity-30">
+            <Threads
+              amplitude={3.6}
+              distance={0.9}
+              enableMouseInteraction={false}
+              color={[0.54, 0.45, 0.18]} // Archo Brass color normalized
+            />
+          </div>
+
+          {/* Background Waves - Extended vertically */}
+          <div className="absolute inset-0 opacity-[0.15]">
+            <Waves
+              lineColor="#D4AF37"
+              backgroundColor="transparent"
+              waveAmpX={40}
+              waveAmpY={25}
+              waveSpeedX={0.01}
+              waveSpeedY={0.004}
+              xGap={12}
+              yGap={36}
+            />
+          </div>
         </div>
 
         {/* Top Header Bar */}
@@ -347,6 +417,7 @@ export default function App() {
           onClose={() => setIsAuthModalOpen(false)} 
           userProfile={isAuthenticated ? userProfile : null}
           onLogout={handleLogout}
+          onBypass={handleBypassAuth}
         />
       )}
 

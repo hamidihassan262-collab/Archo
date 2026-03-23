@@ -16,7 +16,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
       // Profile doesn't exist, create one
       const { data: newProfile, error: createError } = await supabase
         .from('user_profiles')
-        .insert([{ id: userId, plan: 'free', role: 'broker' }])
+        .insert([{ id: userId, plan: 'free', role: 'broker', onboarding_completed: false }])
         .select()
         .single();
       
@@ -31,6 +31,20 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   }
 
   return data;
+}
+
+export async function updateOnboardingStatus(userId: string, completed: boolean): Promise<boolean> {
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ onboarding_completed: completed })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('Error updating onboarding status:', error);
+    return false;
+  }
+
+  return true;
 }
 
 export async function incrementMessageCount(userId: string): Promise<boolean> {

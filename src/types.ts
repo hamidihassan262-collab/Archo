@@ -13,6 +13,9 @@ export interface UserProfile {
   last_message_date: string | null;
   email?: string;
   full_name?: string;
+  onboarding_completed?: boolean;
+  onboarding_case_management?: string;
+  onboarding_pain_point?: string;
 }
 
 export interface Company {
@@ -32,6 +35,8 @@ export interface MortgageCase {
   stage: CaseStage;
   lastActionDate: string;
   ragStatus: 'Red' | 'Amber' | 'Green';
+  assignedTo?: string;
+  createdAt?: string;
 }
 
 export interface Lender {
