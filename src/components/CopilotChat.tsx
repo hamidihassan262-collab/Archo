@@ -1,15 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Sparkles, User, Bot, Paperclip, Search, Quote, Loader2, AlertCircle, X } from 'lucide-react';
+import { Send, Sparkles, User, Bot, Paperclip, Search, Quote, Loader2, AlertCircle, X, Plus, Copy, ThumbsUp, ThumbsDown, Check } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import Markdown from 'react-markdown';
 import { supabase } from '../lib/supabase';
 import { queryPinecone } from '../lib/pinecone';
 import PrimaryButton from './PrimaryButton';
-import { UserProfile } from '../types';
+import { UserProfile, MortgageCase } from '../types';
 import { incrementMessageCount } from '../services/pricingService';
 import { playHoverSound, playClickSound, playModalOpenSound, playModalCloseSound, playSuccessSound, playErrorSound } from '../lib/sounds';
-
-const currentSessionId = 'default-session'; // In a real app, this would be dynamic
+import Logo from './Logo';
 
 interface Message {
   id: string;
@@ -17,6 +16,8 @@ interface Message {
   text: string;
   sources: { lender: string; text: string }[];
   image?: { data: string; mimeType: string };
+  timestamp: string;
+  rating?: 'up' | 'down';
 }
 
 interface CopilotChatProps {
@@ -24,16 +25,24 @@ interface CopilotChatProps {
   userProfile: UserProfile;
   onUpgrade: () => void;
   hasProAccess?: boolean;
+  currentCase?: MortgageCase | null;
+  onSessionEnd?: () => void;
 }
 
-export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasProAccess }: CopilotChatProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: '1', role: 'assistant', text: "Hello Hassan. I'm Archo, your mortgage specialist AI. How can I help you with your cases or criteria research today?", sources: [] },
-  ]);
+export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasProAccess, currentCase, onSessionEnd }: CopilotChatProps) {
+  const [sessionId, setSessionId] = useState<string>(() => {
+    const saved = localStorage.getItem('archo_chat_session_id');
+    if (saved) return saved;
+    const newId = crypto.randomUUID();
+    localStorage.setItem('archo_chat_session_id', newId);
+    return newId;
+  });
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ data: string; mimeType: string } | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,22 +54,21 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, isTyping]);
 
   useEffect(() => {
     loadChatHistory();
 
     // Set up real-time subscription
     const channel = supabase
-      .channel('chat-feed')
+      .channel(`chat-feed-${sessionId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages' },
         (payload) => {
           const newMessage = payload.new;
-          if (newMessage.session_id === currentSessionId) {
+          if (newMessage.session_id === sessionId) {
             setMessages(prev => {
-              // Avoid duplicate messages if the local state was already updated
               if (prev.some(m => m.id === newMessage.id)) return prev;
               
               return [...prev, {
@@ -68,7 +76,9 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
                 role: newMessage.role as 'user' | 'assistant',
                 text: newMessage.content,
                 sources: newMessage.metadata?.sources || [],
-                image: newMessage.metadata?.image || undefined
+                image: newMessage.metadata?.image || undefined,
+                timestamp: newMessage.created_at,
+                rating: newMessage.rating
               }];
             });
           }
@@ -79,25 +89,71 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [sessionId]);
+
+  // Summarize on unmount
+  useEffect(() => {
+    return () => {
+      if (messages.length > 0) {
+        summarizeSession().then(() => {
+          if (onSessionEnd) onSessionEnd();
+        });
+      }
+    };
+  }, [messages, onSessionEnd]);
+
+  const summarizeSession = async () => {
+    if (messages.length < 2) return;
+    
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const historyText = messages.map(m => `${m.role}: ${m.text}`).join('\n');
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Summarize the following conversation between a mortgage broker and Archo AI. Extract key information about the broker (preferences, typical clients, repeated scenarios) and their clients' details. Format as bullet points.\n\n${historyText}`,
+        config: {
+          systemInstruction: "You are a memory extraction assistant. Your goal is to summarize key broker and client info into a concise JSON-like summary for long-term memory."
+        }
+      });
+
+      const summary = response.text;
+      if (summary && userProfile.id) {
+        const newMemory = {
+          ...userProfile.ai_memory,
+          summary: summary
+        };
+
+        await supabase
+          .from('user_profiles')
+          .update({ ai_memory: newMemory })
+          .eq('id', userProfile.id);
+      }
+    } catch (err) {
+      console.error('Failed to summarize session:', err);
+    }
+  };
 
   const loadChatHistory = async () => {
     try {
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
-        .eq('session_id', currentSessionId)
-        .order('created_at', { ascending: true });
+        .eq('session_id', sessionId)
+        .order('created_at', { ascending: true })
+        .limit(20);
 
       if (error) {
         console.error('Supabase load error:', error);
-      } else if (data && data.length > 0) {
+      } else if (data) {
         const history: Message[] = data.map((msg: any) => ({
           id: msg.id,
           role: msg.role as 'user' | 'assistant',
           text: msg.content,
           sources: msg.metadata?.sources || [],
-          image: msg.metadata?.image || undefined
+          image: msg.metadata?.image || undefined,
+          timestamp: msg.created_at,
+          rating: msg.rating
         }));
         setMessages(history);
       }
@@ -106,26 +162,33 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleNewConversation = () => {
+    playClickSound();
+    const newId = crypto.randomUUID();
+    setSessionId(newId);
+    localStorage.setItem('archo_chat_session_id', newId);
+    setMessages([]);
+  };
 
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file.');
-      playErrorSound();
-      return;
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    playSuccessSound();
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleRate = async (id: string, rating: 'up' | 'down') => {
+    playClickSound();
+    setMessages(prev => prev.map(m => m.id === id ? { ...m, rating } : m));
+    
+    try {
+      await supabase
+        .from('chat_messages')
+        .update({ rating })
+        .eq('id', id);
+    } catch (err) {
+      console.error('Failed to save rating:', err);
     }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64String = (reader.result as string).split(',')[1];
-      setSelectedImage({
-        data: base64String,
-        mimeType: file.type
-      });
-      playSuccessSound();
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleSend = async () => {
@@ -144,7 +207,8 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
       role: 'user',
       text: messageText,
       sources: [],
-      image: selectedImage || undefined
+      image: selectedImage || undefined,
+      timestamp: new Date().toISOString()
     };
 
     setMessages(prev => [...prev, userMsg]);
@@ -152,17 +216,16 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
     setSelectedImage(null);
     setIsTyping(true);
 
-    // Increment message count in DB
     await incrementMessageCount(userProfile.id);
 
-    // Save user message to Supabase
     try {
       await supabase
         .from('chat_messages')
         .insert({
           content: messageText,
           role: 'user',
-          session_id: currentSessionId,
+          session_id: sessionId,
+          user_id: userProfile.id,
           metadata: { image: userMsg.image }
         });
     } catch (err) {
@@ -170,23 +233,43 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
     }
 
     try {
-      // 1. Query Pinecone for relevant knowledge
       const pineconeMatches = await queryPinecone(messageText);
       const sources = pineconeMatches.map(m => ({
         lender: m.metadata.lender,
         text: m.metadata.text
       }));
 
-      // 2. Prepare context for Gemini
-      const context = sources.length > 0 
+      const knowledgeContext = sources.length > 0 
         ? `Use the following context to answer the user's question:\n${sources.map(s => `[Lender: ${s.lender}] ${s.text}`).join('\n')}`
         : "No specific lender criteria found in knowledge base. Use your general knowledge but advise caution.";
 
+      const brokerName = userProfile.full_name?.split(' ')[0] || 'Broker';
+      const brokerMemory = userProfile.ai_memory?.summary || "No previous memory of this broker.";
+      
+      let caseContext = "";
+      if (currentCase) {
+        caseContext = `\n\nCURRENT CASE CONTEXT:\nClient: ${currentCase.clientName}\nProperty Value: £${currentCase.propertyValue}\nLoan Amount: £${currentCase.loanAmount}\nLTV: ${currentCase.ltv}%\nStage: ${currentCase.stage}`;
+      }
+
+      const systemPrompt = `Archo is an expert Australian mortgage broker AI assistant with deep knowledge of Australian lender criteria, APRA regulations, ASIC responsible lending obligations, and mortgage products. The broker using Archo is a licensed mortgage broker. Always refer to the broker by their first name: ${brokerName}. Always provide specific actionable advice rather than generic information. When recommending lenders always explain why that lender suits the specific scenario. Always remind the broker to verify criteria directly with lenders before advising clients.
+
+BROKER MEMORY CONTEXT:
+${brokerMemory}
+${caseContext}
+
+${knowledgeContext}`;
+
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
-      const parts: any[] = [{ text: `${context}\n\nUser Question: ${messageText}` }];
+      // Full conversation history
+      const historyParts = messages.map(m => ({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: m.text }]
+      }));
+
+      const currentParts: any[] = [{ text: messageText }];
       if (userMsg.image) {
-        parts.push({
+        currentParts.push({
           inlineData: {
             data: userMsg.image.data,
             mimeType: userMsg.image.mimeType
@@ -196,9 +279,12 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
 
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: { parts },
+        contents: [
+          ...historyParts,
+          { role: 'user', parts: currentParts }
+        ],
         config: {
-          systemInstruction: "You are Archo, a professional mortgage specialist AI for UK mortgage brokers. You help with lender criteria, affordability, and case placement. Be concise, professional, and helpful. If you mention specific lenders, try to format them clearly. Always cite the sources provided in the context if they are relevant.",
+          systemInstruction: systemPrompt,
         }
       });
 
@@ -207,20 +293,21 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         text: assistantText,
-        sources: sources
+        sources: sources,
+        timestamp: new Date().toISOString()
       };
 
       setMessages(prev => [...prev, assistantMsg]);
       playSuccessSound();
 
-      // Save assistant message to Supabase
       await supabase
         .from('chat_messages')
         .insert({
           content: assistantText,
           role: 'assistant',
-          session_id: currentSessionId,
-          metadata: { sources } // Store sources in metadata
+          session_id: sessionId,
+          user_id: userProfile.id,
+          metadata: { sources }
         });
 
     } catch (error) {
@@ -230,14 +317,34 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         text: "I encountered an error while connecting to my brain. Please try again later.",
-        sources: []
+        sources: [],
+        timestamp: new Date().toISOString()
       }]);
     } finally {
       setIsTyping(false);
     }
   };
 
-   const handleFileUpload = () => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please upload an image file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      const data = base64.split(',')[1];
+      setSelectedImage({ data, mimeType: file.type });
+      playSuccessSound();
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileUpload = () => {
     playClickSound();
     if (isFree) {
       onUpgrade();
@@ -286,19 +393,54 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
       )}
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-10 pr-4 scrollbar-hide">
+        {messages.length === 0 && !isTyping && (
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-4 opacity-50">
+            <div className="w-20 h-20 bg-archo-brass/10 rounded-full flex items-center justify-center text-archo-brass">
+              <Bot size={40} />
+            </div>
+            <div>
+              <h3 className="text-xl font-serif font-bold text-archo-ink">Start a new conversation</h3>
+              <p className="text-sm text-archo-slate">Ask Archo anything about criteria or your cases.</p>
+            </div>
+          </div>
+        )}
         {messages.map((msg) => (
           <div key={msg.id} className={`flex gap-8 ${msg.role === 'user' ? 'justify-end' : ''}`}>
             {msg.role === 'assistant' && (
               <div className="w-12 h-12 rounded-2xl bg-archo-ink flex items-center justify-center text-archo-brass-pale flex-shrink-0 shadow-xl border border-archo-brass/20">
-                <Bot size={24} />
+                <Logo className="w-6 h-6" />
               </div>
             )}
             
-            <div className={`max-w-[80%] p-6 rounded-3xl shadow-xl border border-archo-brass/20 ${
+            <div className={`max-w-[80%] p-6 rounded-3xl shadow-xl border border-archo-brass/20 relative group ${
               msg.role === 'user' 
                 ? 'bg-archo-ink text-archo-cream' 
                 : 'bg-archo-cream/80 backdrop-blur-sm text-archo-ink'
             }`}>
+              {msg.role === 'assistant' && (
+                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+                  <button 
+                    onClick={() => handleCopy(msg.text, msg.id)}
+                    className="p-1.5 hover:bg-archo-brass/10 rounded-lg text-archo-brass transition-colors"
+                    title="Copy to clipboard"
+                  >
+                    {copiedId === msg.id ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                  <button 
+                    onClick={() => handleRate(msg.id, 'up')}
+                    className={`p-1.5 hover:bg-emerald-50 rounded-lg transition-colors ${msg.rating === 'up' ? 'text-emerald-600 bg-emerald-50' : 'text-archo-muted'}`}
+                  >
+                    <ThumbsUp size={14} />
+                  </button>
+                  <button 
+                    onClick={() => handleRate(msg.id, 'down')}
+                    className={`p-1.5 hover:bg-red-50 rounded-lg transition-colors ${msg.rating === 'down' ? 'text-red-600 bg-red-50' : 'text-archo-muted'}`}
+                  >
+                    <ThumbsDown size={14} />
+                  </button>
+                </div>
+              )}
+
               {msg.image && (
                 <div className="mb-4 overflow-hidden rounded-xl border border-archo-brass/20">
                   <img 
@@ -311,6 +453,10 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
               )}
               <div className={`markdown-body text-base leading-relaxed font-sans tracking-tight ${msg.role === 'assistant' ? 'font-medium' : ''}`}>
                 <Markdown>{msg.text}</Markdown>
+              </div>
+
+              <div className={`mt-4 text-[8px] uppercase tracking-widest font-bold ${msg.role === 'user' ? 'text-archo-cream/40' : 'text-archo-muted'}`}>
+                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </div>
               
               {msg.sources.length > 0 && (
@@ -341,7 +487,7 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
         {isTyping && (
           <div className="flex gap-8">
             <div className="w-12 h-12 rounded-2xl bg-archo-ink flex items-center justify-center text-archo-brass-pale flex-shrink-0 shadow-xl border border-archo-brass/20 animate-pulse">
-              <Bot size={24} />
+              <Logo className="w-6 h-6" />
             </div>
             <div className="bg-archo-cream/80 backdrop-blur-sm p-6 rounded-3xl border border-archo-brass/20 shadow-xl">
               <div className="flex gap-1.5">
@@ -356,8 +502,16 @@ export default function CopilotChat({ requireAuth, userProfile, onUpgrade, hasPr
 
       <div className="mt-10 relative">
         <div className="absolute -top-14 left-0 right-0 flex justify-between items-center px-4">
-          <div className="bg-archo-cream text-archo-brass px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-3 shadow-md border border-archo-brass/20 backdrop-blur-sm">
-            <Sparkles size={14} className={isTyping ? "animate-spin" : "animate-pulse"} /> AI Reasoning Active
+          <div className="flex gap-2">
+            <div className="bg-archo-cream text-archo-brass px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-3 shadow-md border border-archo-brass/20 backdrop-blur-sm">
+              <Sparkles size={14} className={isTyping ? "animate-spin" : "animate-pulse"} /> AI Reasoning Active
+            </div>
+            <button 
+              onClick={handleNewConversation}
+              className="bg-archo-cream text-archo-ink px-6 py-2 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-3 shadow-md border border-archo-brass/20 hover:bg-archo-paper transition-all"
+            >
+              <Plus size={14} /> New Conversation
+            </button>
           </div>
           {isFree && (
             <div className="bg-archo-ink text-archo-cream px-4 py-2 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-md border border-archo-brass/20">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, LogOut, User, Shield, Save, Volume2, VolumeX } from 'lucide-react';
+import { X, LogOut, User, Shield, Save, Volume2, VolumeX, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PrimaryButton from './PrimaryButton';
 import { UserProfile, UserRole } from '../types';
@@ -19,9 +19,10 @@ interface SettingsModalProps {
   onClose: () => void;
   userProfile: UserProfile;
   onUpdateProfile: (full_name: string, role: string) => void;
+  onResetOnboarding?: () => void;
 }
 
-export default function SettingsModal({ isOpen, onClose, userProfile, onUpdateProfile }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose, userProfile, onUpdateProfile, onResetOnboarding }: SettingsModalProps) {
   const [fullName, setFullName] = useState(userProfile.full_name || '');
   const [role, setRole] = useState(userProfile.role);
   const [isSoundEnabled, setIsSoundEnabled] = useState(getMuteStatus());
@@ -147,6 +148,21 @@ export default function SettingsModal({ isOpen, onClose, userProfile, onUpdatePr
                 >
                   <Save size={18} /> Save Changes
                 </PrimaryButton>
+
+                {onResetOnboarding && (
+                  <button 
+                    onClick={() => {
+                      playClickSound();
+                      if (window.confirm('Are you sure you want to reset onboarding? This will reload the page.')) {
+                        onResetOnboarding();
+                      }
+                    }}
+                    onMouseEnter={playHoverSound}
+                    className="w-full py-4 border border-archo-brass/20 text-archo-brass rounded-2xl font-serif font-bold hover:bg-archo-brass/5 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Sparkles size={18} /> Reset Onboarding
+                  </button>
+                )}
                 
                 <button 
                   onClick={handleSignOut}

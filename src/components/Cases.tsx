@@ -12,9 +12,11 @@ interface CasesProps {
   userProfile: UserProfile;
   onUpgrade: () => void;
   hasProAccess?: boolean;
+  onSelectCase?: (c: MortgageCase | null) => void;
+  selectedCase?: MortgageCase | null;
 }
 
-export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAccess }: CasesProps) {
+export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAccess, onSelectCase, selectedCase }: CasesProps) {
   const [cases, setCases] = useState<MortgageCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,7 +28,7 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
-  const [selectedCase, setSelectedCase] = useState<MortgageCase | null>(null);
+  const [editingCase, setEditingCase] = useState<MortgageCase | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     clientName: '',
@@ -212,11 +214,11 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
 
   const handleUpdateCase = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCase) return;
+    if (!editingCase) return;
     setModalError(null);
     try {
       if (userProfile?.id === 'demo-user') {
-        setCases(prev => prev.map(c => c.id === selectedCase.id ? {
+        setCases(prev => prev.map(c => c.id === editingCase.id ? {
           ...c,
           clientName: formData.clientName,
           stage: formData.stage,
@@ -227,7 +229,7 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
           assignedTo: formData.assignedTo
         } : c));
         setShowEditModal(false);
-        setSelectedCase(null);
+        setEditingCase(null);
         resetForm();
         return;
       }
@@ -249,12 +251,12 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
           status_colour: formData.statusColour,
           assigned_to: formData.assignedTo
         })
-        .eq('id', selectedCase.id);
+        .eq('id', editingCase.id);
 
       if (error) throw error;
       
       setShowEditModal(false);
-      setSelectedCase(null);
+      setEditingCase(null);
       resetForm();
     } catch (error: any) {
       setModalError(error.message || 'Failed to update case.');
@@ -334,7 +336,8 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
   };
 
   const openEditModal = (mortgageCase: MortgageCase) => {
-    setSelectedCase(mortgageCase);
+    if (onSelectCase) onSelectCase(mortgageCase);
+    setEditingCase(mortgageCase);
     setFormData({
       clientName: mortgageCase.clientName,
       propertyValue: mortgageCase.propertyValue.toString(),

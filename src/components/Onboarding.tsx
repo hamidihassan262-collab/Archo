@@ -69,16 +69,48 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [spotlightStep, setSpotlightStep] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = new Audio('/api/video/0');
+    audio.loop = true;
+    audio.volume = 0.3;
+    audioRef.current = audio;
+
+    const startAudio = async () => {
+      try {
+        await audio.play();
+      } catch (err) {
+        // Autoplay might be blocked, wait for first click
+        const handleInteraction = () => {
+          audio.play().catch(() => {});
+          window.removeEventListener('click', handleInteraction);
+          window.removeEventListener('keydown', handleInteraction);
+        };
+        window.addEventListener('click', handleInteraction);
+        window.addEventListener('keydown', handleInteraction);
+      }
+    };
+
+    startAudio();
+
+    return () => {
+      audio.pause();
+      audio.src = '';
+      audioRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user && step < 6) {
+      // Only auto-skip the sign-up step (5) if already logged in
+      if (user && step === 5) {
         setStep(6);
       }
     };
     checkAuth();
-  }, []);
+  }, [step]);
 
   useEffect(() => {
     localStorage.setItem('archo_onboarding_step', step.toString());
@@ -205,6 +237,9 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
   ];
 
   const finishOnboarding = async () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
     playClickSound();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {

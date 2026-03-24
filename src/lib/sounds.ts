@@ -173,6 +173,51 @@ export const playSuccessSound = () => {
   }
 };
 
+export const playCelebrationSound = () => {
+  if (isMuted()) return;
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+    
+    // A more elaborate, bright celebratory sequence
+    const notes = [440, 554.37, 659.25, 880]; // A major chord (A4, C#5, E5, A5)
+    notes.forEach((freq, i) => {
+      const delay = i * 0.1;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + delay);
+      osc.frequency.exponentialRampToValueAtTime(freq * 1.05, now + delay + 0.1);
+      
+      gain.gain.setValueAtTime(0, now + delay);
+      gain.gain.linearRampToValueAtTime(0.08, now + delay + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.4);
+      
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(now + delay);
+      osc.stop(now + delay + 0.4);
+    });
+
+    // Add a low thock at the end for grounding
+    const thockOsc = ctx.createOscillator();
+    const thockGain = ctx.createGain();
+    thockOsc.type = 'triangle';
+    thockOsc.frequency.setValueAtTime(110, now + 0.4);
+    thockGain.gain.setValueAtTime(0.1, now + 0.4);
+    thockGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.6);
+    thockOsc.connect(thockGain);
+    thockGain.connect(ctx.destination);
+    thockOsc.start(now + 0.4);
+    thockOsc.stop(now + 0.6);
+    
+  } catch (e) {
+    console.warn('Audio playback failed', e);
+  }
+};
+
 export const playTypeSound = () => {
   if (isMuted()) return;
   try {

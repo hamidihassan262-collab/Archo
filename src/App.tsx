@@ -23,7 +23,7 @@ import LockedFeature from './components/LockedFeature';
 import ProUnlockedNotification from './components/ProUnlockedNotification';
 import { Bell, Search, HelpCircle, Volume2, VolumeX } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { UserProfile, UserPlan, UserRole } from './types';
+import { UserProfile, UserPlan, UserRole, MortgageCase } from './types';
 import { getUserProfile, updatePlan } from './services/pricingService';
 import { 
   playHoverSound, 
@@ -31,6 +31,8 @@ import {
   playModalOpenSound, 
   playModalCloseSound, 
   playTypeSound,
+  playSuccessSound,
+  playCelebrationSound,
   getMuteStatus,
   toggleMute
 } from './lib/sounds';
@@ -62,6 +64,7 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSoundEnabled, setIsSoundEnabled] = useState(getMuteStatus());
+  const [selectedCase, setSelectedCase] = useState<MortgageCase | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -82,6 +85,7 @@ export default function App() {
 
   const triggerProUnlocked = () => {
     setShowProUnlockedNotification(true);
+    playCelebrationSound();
     confetti({
       particleCount: 150,
       spread: 70,
@@ -226,6 +230,30 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const handleResetOnboarding = async () => {
+    try {
+      if (userProfile.id && userProfile.id !== 'demo-user') {
+        const { error } = await supabase
+          .from('user_profiles')
+          .update({ onboarding_completed: false })
+          .eq('id', userProfile.id);
+        
+        if (error) throw error;
+      }
+      
+      // Clear all possible onboarding related storage
+      localStorage.removeItem('archo_onboarding_dismissed');
+      localStorage.setItem('archo_onboarding_step', '1');
+      localStorage.removeItem('archo_onboarding_data');
+      
+      // Force reload to trigger initAuth with clean state and default tab
+      window.location.href = window.location.origin;
+    } catch (err) {
+      console.error('Error resetting onboarding:', err);
+      alert('Failed to reset onboarding. Please try again.');
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setIsAuthenticated(false);
@@ -295,6 +323,8 @@ export default function App() {
           userProfile={userProfile}
           onUpgrade={() => setActiveTab('pricing')}
           hasProAccess={hasProAccess}
+          onSelectCase={setSelectedCase}
+          selectedCase={selectedCase}
         />;
       case 'criteria':
         return <CriteriaExplorer 
@@ -309,6 +339,13 @@ export default function App() {
           userProfile={userProfile} 
           onUpgrade={() => setActiveTab('pricing')} 
           hasProAccess={hasProAccess}
+          currentCase={selectedCase}
+          onSessionEnd={async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              await fetchProfile(user.id, user.email || '');
+            }
+          }}
         />;
       case 'compliance':
         return <Compliance 
@@ -353,6 +390,7 @@ export default function App() {
         <Onboarding 
           onComplete={() => {
             setShowOnboarding(false);
+            setActiveTab('dashboard');
             localStorage.setItem('archo_onboarding_dismissed', 'true');
           }}
           onSignIn={() => {
@@ -499,6 +537,7 @@ export default function App() {
         onClose={() => setIsSettingsOpen(false)} 
         userProfile={userProfile}
         onUpdateProfile={(full_name, role) => setUserProfile(prev => ({ ...prev, full_name, role: role as UserRole }))}
+        onResetOnboarding={handleResetOnboarding}
       />
 
       {isAuthModalOpen && (

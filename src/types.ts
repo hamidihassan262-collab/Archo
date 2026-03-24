@@ -16,6 +16,13 @@ export interface UserProfile {
   onboarding_completed?: boolean;
   onboarding_case_management?: string;
   onboarding_pain_point?: string;
+  ai_memory?: {
+    preferred_lenders?: string[];
+    typical_client_profiles?: string[];
+    repeated_scenarios?: string[];
+    client_details?: { [key: string]: any };
+    summary?: string;
+  };
 }
 
 export interface Company {
