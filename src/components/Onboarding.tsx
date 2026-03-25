@@ -53,10 +53,10 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
       password: '',
       brokerageName: '',
       firstCase: {
-        clientName: 'John Smith',
-        propertyValue: 350000,
-        loanAmount: 297500,
-        ltv: 85,
+        clientName: '',
+        propertyValue: 0,
+        loanAmount: 0,
+        ltv: 0,
         statusColour: 'Green',
         stage: 'Lead' as CaseStage
       }
@@ -146,6 +146,29 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
       setSearchResults([]);
     }
   }, [searchQuery, lenders]);
+
+  useEffect(() => {
+    if (formData.firstCase.propertyValue > 0) {
+      const calculatedLtv = Math.round((formData.firstCase.loanAmount / formData.firstCase.propertyValue) * 100);
+      if (calculatedLtv !== formData.firstCase.ltv) {
+        setFormData(prev => ({
+          ...prev,
+          firstCase: {
+            ...prev.firstCase,
+            ltv: calculatedLtv
+          }
+        }));
+      }
+    } else if (formData.firstCase.ltv !== 0) {
+      setFormData(prev => ({
+        ...prev,
+        firstCase: {
+          ...prev.firstCase,
+          ltv: 0
+        }
+      }));
+    }
+  }, [formData.firstCase.propertyValue, formData.firstCase.loanAmount]);
 
   const nextStep = () => {
     playClickSound();
@@ -685,8 +708,8 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                       <label className="text-[10px] font-bold uppercase tracking-widest text-archo-muted ml-1">Property Value</label>
                       <input 
                         type="number"
-                        value={formData.firstCase.propertyValue}
-                        onChange={(e) => setFormData({ ...formData, firstCase: { ...formData.firstCase, propertyValue: parseInt(e.target.value) }})}
+                        value={formData.firstCase.propertyValue || ''}
+                        onChange={(e) => setFormData({ ...formData, firstCase: { ...formData.firstCase, propertyValue: Number(e.target.value) || 0 }})}
                         className="w-full px-4 py-3 bg-archo-paper rounded-xl border border-archo-brass/10 focus:border-archo-brass focus:ring-0 transition-all text-sm"
                       />
                     </div>
@@ -694,8 +717,8 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                       <label className="text-[10px] font-bold uppercase tracking-widest text-archo-muted ml-1">Loan Amount</label>
                       <input 
                         type="number"
-                        value={formData.firstCase.loanAmount}
-                        onChange={(e) => setFormData({ ...formData, firstCase: { ...formData.firstCase, loanAmount: parseInt(e.target.value) }})}
+                        value={formData.firstCase.loanAmount || ''}
+                        onChange={(e) => setFormData({ ...formData, firstCase: { ...formData.firstCase, loanAmount: Number(e.target.value) || 0 }})}
                         className="w-full px-4 py-3 bg-archo-paper rounded-xl border border-archo-brass/10 focus:border-archo-brass focus:ring-0 transition-all text-sm"
                       />
                     </div>
@@ -707,8 +730,8 @@ export default function Onboarding({ onComplete, onSignIn }: OnboardingProps) {
                       <input 
                         type="number"
                         value={formData.firstCase.ltv}
-                        onChange={(e) => setFormData({ ...formData, firstCase: { ...formData.firstCase, ltv: parseInt(e.target.value) }})}
-                        className="w-full px-4 py-3 bg-archo-paper rounded-xl border border-archo-brass/10 focus:border-archo-brass focus:ring-0 transition-all text-sm"
+                        readOnly
+                        className="w-full px-4 py-3 bg-archo-brass/5 rounded-xl border border-archo-brass/10 text-archo-slate text-sm font-bold cursor-not-allowed"
                       />
                     </div>
                     <div className="space-y-1.5">

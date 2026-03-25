@@ -30,13 +30,14 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [editingCase, setEditingCase] = useState<MortgageCase | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     clientName: '',
     propertyValue: '',
     loanAmount: '',
     ltv: '',
     statusColour: 'Green',
-    assignedTo: 'Hassan Hamidi',
+    assignedTo: userProfile?.full_name || 'User',
     stage: 'Lead' as CaseStage
   });
 
@@ -44,40 +45,8 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
   const caseLimit = 3;
 
   const loadCases = useCallback(async () => {
+    setFetchError(null);
     try {
-      if (userProfile?.id === 'demo-user') {
-        if (cases.length === 0) {
-          setCases([
-            {
-              id: 'demo-case-1',
-              clientName: 'John & Jane Smith',
-              propertyValue: 450000,
-              loanAmount: 337500,
-              ltv: 75,
-              stage: 'Application',
-              lastActionDate: new Date().toISOString().split('T')[0],
-              ragStatus: 'Green',
-              assignedTo: 'Hassan Hamidi',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'demo-case-2',
-              clientName: 'Robert Brown',
-              propertyValue: 280000,
-              loanAmount: 210000,
-              ltv: 75,
-              stage: 'Lead',
-              lastActionDate: new Date().toISOString().split('T')[0],
-              ragStatus: 'Amber',
-              assignedTo: 'Hassan Hamidi',
-              createdAt: new Date().toISOString()
-            }
-          ]);
-        }
-        setLoading(false);
-        return;
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setLoading(false);
@@ -90,7 +59,11 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading cases:', error);
+        setFetchError('Failed to load your cases. Please check your connection and try again.');
+        return;
+      }
 
       if (data) {
         const mappedData: MortgageCase[] = data.map((item: any) => {
@@ -109,7 +82,7 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
             clientName: item.client_name,
             propertyValue: item.property_value,
             loanAmount: item.loan_amount,
-            ltv: item.ltv,
+            ltv: Math.round((Number(item.loan_amount) / Number(item.property_value)) * 100) || 0,
             stage: stage,
             lastActionDate: item.last_action_date || new Date(item.created_at).toISOString().split('T')[0],
             ragStatus: item.status_colour || 'Green',
@@ -149,6 +122,15 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
     e.preventDefault();
     setModalError(null);
 
+    // Refresh session to ensure token hasn't expired
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setModalError('Your session has expired. Please log in again.');
+      // Redirect to home/login
+      window.location.href = '/';
+      return;
+    }
+
     if (isFree && cases.length >= caseLimit) {
       setShowAddModal(false);
       setShowLimitModal(true);
@@ -156,59 +138,58 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
     }
 
     try {
-      if (userProfile?.id === 'demo-user') {
-        const newDemoCase: MortgageCase = {
-          id: `demo-${Math.random().toString(36).substr(2, 9)}`,
-          clientName: formData.clientName,
-          stage: formData.stage,
-          propertyValue: Number(formData.propertyValue),
-          loanAmount: Number(formData.loanAmount),
-          ltv: Number(formData.ltv) || Math.round((Number(formData.loanAmount) / Number(formData.propertyValue)) * 100),
-          ragStatus: formData.statusColour as any,
-          lastActionDate: new Date().toISOString().split('T')[0],
-          assignedTo: formData.assignedTo,
-          createdAt: new Date().toISOString()
-        };
-        setCases(prev => [newDemoCase, ...prev]);
-        setShowAddModal(false);
-        resetForm();
-        return;
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
+      // Get current user and log result for debugging
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('Supabase Auth User Result:', { user, error: userError });
       
       if (!user) {
         setModalError('You must be logged in to create a case.');
+        // Redirect to home/login
+        window.location.href = '/';
         return;
       }
 
+      // Ensure all numeric fields are converted to numbers
+      const insertData = {
+        client_name: formData.clientName,
+        stage: formData.stage.toLowerCase(),
+        property_value: Number(formData.propertyValue),
+        loan_amount: Number(formData.loanAmount),
+        ltv: Number(formData.ltv) || Math.round((Number(formData.loanAmount) / Number(formData.propertyValue)) * 100),
+        status_colour: formData.statusColour,
+        assigned_to: formData.assignedTo,
+        user_id: user.id // Explicitly include user_id from authenticated user
+      };
+
       const { error } = await supabase
         .from('cases')
-        .insert({
-          client_name: formData.clientName,
-          stage: formData.stage.toLowerCase(),
-          property_value: Number(formData.propertyValue),
-          loan_amount: Number(formData.loanAmount),
-          ltv: Number(formData.ltv) || Math.round((Number(formData.loanAmount) / Number(formData.propertyValue)) * 100),
-          status_colour: formData.statusColour,
-          assigned_to: formData.assignedTo,
-          user_id: user.id
-        });
+        .insert(insertData);
 
       if (error) {
+        // Detailed error logging as requested
         console.error('Supabase Insert Error (Detailed):', {
           code: error.code,
           message: error.message,
           details: error.details,
           hint: error.hint
         });
-        throw error;
+        
+        // Provide a human-readable error message
+        let userMessage = 'Failed to create case. ';
+        if (error.code === '42501') {
+          userMessage += 'Permission denied. Please ensure you are logged in correctly.';
+        } else {
+          userMessage += error.message;
+        }
+        setModalError(userMessage);
+        return;
       }
       
       setShowAddModal(false);
       resetForm();
     } catch (error: any) {
-      setModalError(error.message || 'Failed to save case. Please check your connection.');
+      console.error('Unexpected error during case creation:', error);
+      setModalError(error.message || 'An unexpected error occurred. Please try again.');
     }
   };
 
@@ -217,23 +198,6 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
     if (!editingCase) return;
     setModalError(null);
     try {
-      if (userProfile?.id === 'demo-user') {
-        setCases(prev => prev.map(c => c.id === editingCase.id ? {
-          ...c,
-          clientName: formData.clientName,
-          stage: formData.stage,
-          propertyValue: Number(formData.propertyValue),
-          loanAmount: Number(formData.loanAmount),
-          ltv: Number(formData.ltv) || Math.round((Number(formData.loanAmount) / Number(formData.propertyValue)) * 100),
-          ragStatus: formData.statusColour as any,
-          assignedTo: formData.assignedTo
-        } : c));
-        setShowEditModal(false);
-        setEditingCase(null);
-        resetForm();
-        return;
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setModalError('You must be logged in to update a case.');
@@ -267,11 +231,6 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
     e.stopPropagation();
     if (!window.confirm('Are you sure you want to delete this case?')) return;
     try {
-      if (userProfile?.id === 'demo-user') {
-        setCases(prev => prev.filter(c => c.id !== id));
-        return;
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         alert('You must be logged in to delete a case.');
@@ -291,11 +250,6 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
 
   const handleUpdateCaseStage = async (id: string, newStage: CaseStage) => {
     try {
-      if (userProfile?.id === 'demo-user') {
-        setCases(prev => prev.map(c => c.id === id ? { ...c, stage: newStage } : c));
-        return;
-      }
-
       const { error } = await supabase
         .from('cases')
         .update({ stage: newStage.toLowerCase() })
@@ -330,7 +284,7 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
       loanAmount: '',
       ltv: '',
       statusColour: 'Green',
-      assignedTo: 'Hassan Hamidi',
+      assignedTo: userProfile?.full_name || 'User',
       stage: 'Lead'
     });
   };
@@ -344,7 +298,7 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
       loanAmount: mortgageCase.loanAmount.toString(),
       ltv: mortgageCase.ltv.toString(),
       statusColour: mortgageCase.ragStatus,
-      assignedTo: (mortgageCase as any).assignedTo || 'Hassan Hamidi',
+      assignedTo: (mortgageCase as any).assignedTo || userProfile?.full_name || 'User',
       stage: mortgageCase.stage
     });
     setShowEditModal(true);
@@ -360,6 +314,21 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
     return (
       <div className="p-8 flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-archo-brass"></div>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center h-full text-center space-y-4">
+        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-2">
+          <AlertCircle size={32} />
+        </div>
+        <h3 className="text-xl font-serif font-bold text-archo-ink">Connection Error</h3>
+        <p className="text-archo-slate max-w-md italic">{fetchError}</p>
+        <PrimaryButton onClick={() => loadCases()} className="px-8 py-3 rounded-full">
+          Try Again
+        </PrimaryButton>
       </div>
     );
   }
@@ -489,7 +458,7 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
                         <div className="w-6 h-6 rounded-full bg-archo-ink flex items-center justify-center text-[8px] text-archo-brass-pale font-serif font-bold">
                           {(c as any).assignedTo?.[0] || 'H'}
                         </div>
-                        <span className="text-xs text-archo-slate">{(c as any).assignedTo || 'Hassan Hamidi'}</span>
+                        <span className="text-xs text-archo-slate">{(c as any).assignedTo || 'User'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-5">
@@ -565,7 +534,7 @@ export default function Cases({ requireAuth, userProfile, onUpgrade, hasProAcces
                         <div className="w-5 h-5 rounded-full bg-archo-ink flex items-center justify-center text-[6px] text-archo-brass-pale font-serif font-bold">
                           {(c as any).assignedTo?.[0] || 'H'}
                         </div>
-                        <span className="text-[10px] text-archo-slate">{(c as any).assignedTo || 'Hassan Hamidi'}</span>
+                        <span className="text-[10px] text-archo-slate">{(c as any).assignedTo || 'User'}</span>
                       </div>
                       <div className="flex items-center gap-1 text-archo-muted">
                         <Calendar size={10} />

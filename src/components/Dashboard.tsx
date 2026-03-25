@@ -22,6 +22,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [selectedCase, setSelectedCase] = useState<MortgageCase | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [showLock, setShowLock] = useState(true);
   const [newCase, setNewCase] = useState({ 
     clientName: '', 
@@ -29,42 +30,103 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
     loanAmount: '', 
     ltv: '', 
     statusColour: 'Green', 
-    assignedTo: 'Hassan Hamidi',
+    assignedTo: userProfile?.full_name || 'User',
     stage: 'Lead' as CaseStage 
   });
 
-  const loadCases = useCallback(async () => {
-    try {
-      if (userProfile?.id === 'demo-user') {
-        // For demo user, if cases are empty, initialize with some mock data
-        if (cases.length === 0) {
-          setCases([
-            {
-              id: 'demo-case-1',
-              clientName: 'John & Jane Smith',
-              propertyValue: 450000,
-              loanAmount: 337500,
-              ltv: 75,
-              stage: 'Application',
-              lastActionDate: new Date().toISOString().split('T')[0],
-              ragStatus: 'Green'
-            },
-            {
-              id: 'demo-case-2',
-              clientName: 'Robert Brown',
-              propertyValue: 280000,
-              loanAmount: 210000,
-              ltv: 75,
-              stage: 'Lead',
-              lastActionDate: new Date().toISOString().split('T')[0],
-              ragStatus: 'Amber'
-            }
-          ]);
-        }
-        setLoading(false);
-        return;
-      }
+  const analytics = React.useMemo(() => {
+    if (cases.length === 0) return null;
 
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = lastMonthDate.getMonth();
+    const lastMonthYear = lastMonthDate.getFullYear();
+
+    const getMonthStats = (month: number, year: number) => {
+      const monthCases = cases.filter(c => {
+        const d = new Date(c.createdAt || '');
+        return d.getMonth() === month && d.getFullYear() === year;
+      });
+
+      const totalVolume = monthCases.reduce((acc, c) => acc + c.propertyValue, 0);
+      const conversionRate = monthCases.length > 0 
+        ? (monthCases.filter(c => ['Offer', 'Completion'].includes(c.stage)).length / monthCases.length) * 100 
+        : 0;
+      
+      const activeCases = monthCases.filter(c => c.stage !== 'Completion');
+      const avgCaseTime = activeCases.length > 0
+        ? activeCases.reduce((acc, c) => {
+            const created = new Date(c.createdAt || '');
+            const diff = Math.max(0, Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+            return acc + diff;
+          }, 0) / activeCases.length
+        : 0;
+      
+      const pipelineValue = activeCases.reduce((acc, c) => acc + c.loanAmount, 0);
+
+      return { totalVolume, conversionRate, avgCaseTime, pipelineValue };
+    };
+
+    const currentStats = getMonthStats(currentMonth, currentYear);
+    const prevStats = getMonthStats(lastMonth, lastMonthYear);
+
+    const calculateTrend = (current: number, prev: number) => {
+      if (prev === 0) return current > 0 ? '+100%' : '0%';
+      const diff = ((current - prev) / prev) * 100;
+      return `${diff >= 0 ? '+' : ''}${Math.round(diff)}%`;
+    };
+
+    const calculateTimeTrend = (current: number, prev: number) => {
+      const diff = Math.round(current - prev);
+      return `${diff >= 0 ? '+' : ''}${diff} Days`;
+    };
+
+    // Overall stats (all time as requested for some, or just current month? 
+    // User said "Total Volume should be the sum of all property_value fields across all the users cases")
+    const totalVolumeAllTime = cases.reduce((acc, c) => acc + c.propertyValue, 0);
+    const conversionRateAllTime = (cases.filter(c => ['Offer', 'Completion'].includes(c.stage)).length / cases.length) * 100;
+    
+    const activeCasesAllTime = cases.filter(c => c.stage !== 'Completion');
+    const avgCaseTimeAllTime = activeCasesAllTime.length > 0
+      ? activeCasesAllTime.reduce((acc, c) => {
+          const created = new Date(c.createdAt || '');
+          const diff = Math.max(0, Math.floor((now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24)));
+          return acc + diff;
+        }, 0) / activeCasesAllTime.length
+      : 0;
+    
+    const pipelineValueAllTime = activeCasesAllTime.reduce((acc, c) => acc + c.loanAmount, 0);
+
+    return [
+      { 
+        label: 'Total Volume', 
+        value: `£${(totalVolumeAllTime / 1000000).toFixed(1)}M`, 
+        trend: calculateTrend(currentStats.totalVolume, prevStats.totalVolume) 
+      },
+      { 
+        label: 'Conversion Rate', 
+        value: `${Math.round(conversionRateAllTime)}%`, 
+        trend: calculateTrend(currentStats.conversionRate, prevStats.conversionRate) 
+      },
+      { 
+        label: 'Avg. Case Time', 
+        value: `${Math.round(avgCaseTimeAllTime)} Days`, 
+        trend: calculateTimeTrend(currentStats.avgCaseTime, prevStats.avgCaseTime) 
+      },
+      { 
+        label: 'Pipeline Value', 
+        value: `£${(pipelineValueAllTime / 1000000).toFixed(1)}M`, 
+        trend: calculateTrend(currentStats.pipelineValue, prevStats.pipelineValue) 
+      }
+    ];
+  }, [cases]);
+
+  const loadCases = useCallback(async () => {
+    setFetchError(null);
+    try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setLoading(false);
@@ -79,6 +141,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
 
       if (error) {
         console.error('Supabase error:', error);
+        setFetchError('Failed to load your cases. Please check your connection and try again.');
         return;
       }
 
@@ -99,10 +162,11 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
             clientName: item.client_name || 'Unknown Client',
             propertyValue: item.property_value || 0,
             loanAmount: item.loan_amount || 0,
-            ltv: item.ltv || 0,
+            ltv: Math.round((Number(item.loan_amount) / Number(item.property_value)) * 100) || 0,
             stage: stage,
             lastActionDate: item.last_action_date || new Date(item.created_at).toISOString().split('T')[0],
-            ragStatus: item.status_colour || 'Green'
+            ragStatus: item.status_colour || 'Green',
+            createdAt: item.created_at
           };
         });
         setCases(mappedData);
@@ -138,33 +202,6 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
     playClickSound();
     setModalError(null);
     try {
-      if (userProfile?.id === 'demo-user') {
-        const newDemoCase: MortgageCase = {
-          id: `demo-${Math.random().toString(36).substr(2, 9)}`,
-          clientName: newCase.clientName,
-          stage: newCase.stage,
-          propertyValue: Number(newCase.propertyValue),
-          loanAmount: Number(newCase.loanAmount),
-          ltv: Number(newCase.ltv) || Math.round((Number(newCase.loanAmount) / Number(newCase.propertyValue)) * 100),
-          ragStatus: newCase.statusColour as any,
-          lastActionDate: new Date().toISOString().split('T')[0]
-        };
-        setCases(prev => [newDemoCase, ...prev]);
-        setShowAddModal(false);
-        playModalCloseSound();
-        playSuccessSound();
-        setNewCase({ 
-          clientName: '', 
-          propertyValue: '', 
-          loanAmount: '', 
-          ltv: '', 
-          statusColour: 'Green', 
-          assignedTo: 'Hassan Hamidi',
-          stage: 'Lead' 
-        });
-        return;
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setModalError('You must be logged in to create a case.');
@@ -215,7 +252,7 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
         loanAmount: '', 
         ltv: '', 
         statusColour: 'Green', 
-        assignedTo: 'Hassan Hamidi',
+        assignedTo: userProfile?.full_name || 'User',
         stage: 'Lead' 
       });
       loadCases();
@@ -230,16 +267,6 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
     playClickSound();
     if (!window.confirm('Are you sure you want to delete this case?')) return;
     try {
-      if (userProfile?.id === 'demo-user') {
-        setCases(prev => prev.filter(c => c.id !== id));
-        if (selectedCase?.id === id) {
-          setSelectedCase(null);
-          playModalCloseSound();
-        }
-        playSuccessSound();
-        return;
-      }
-
       const { error } = await supabase
         .from('cases')
         .delete()
@@ -262,15 +289,6 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
   const handleUpdateStage = async (id: string, newStage: CaseStage) => {
     playClickSound();
     try {
-      if (userProfile?.id === 'demo-user') {
-        setCases(prev => prev.map(c => c.id === id ? { ...c, stage: newStage } : c));
-        if (selectedCase?.id === id) {
-          setSelectedCase(prev => prev ? { ...prev, stage: newStage } : null);
-        }
-        playSuccessSound();
-        return;
-      }
-
       const { error } = await supabase
         .from('cases')
         .update({ stage: newStage.toLowerCase() })
@@ -290,6 +308,21 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
       <div className="p-8 flex flex-col items-center justify-center h-full gap-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-archo-brass"></div>
         <p className="text-archo-brass font-serif italic animate-pulse">Loading your pipeline...</p>
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center h-full text-center space-y-4">
+        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-2">
+          <AlertCircle size={32} />
+        </div>
+        <h3 className="text-xl font-serif font-bold text-archo-ink">Connection Error</h3>
+        <p className="text-archo-slate max-w-md italic">{fetchError}</p>
+        <PrimaryButton onClick={() => loadCases()} className="px-8 py-3 rounded-full">
+          Try Again
+        </PrimaryButton>
       </div>
     );
   }
@@ -339,22 +372,30 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
         
         <div className="relative">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[
-              { label: 'Total Volume', value: '£4.2M', trend: '+12%' },
-              { label: 'Conversion Rate', value: '68%', trend: '+5%' },
-              { label: 'Avg. Case Time', value: '18 Days', trend: '-2 Days' },
-              { label: 'Pipeline Value', value: '£12.8M', trend: '+8%' }
-            ].map((stat, i) => (
+            {(analytics || [
+              { label: 'Total Volume', value: '£0.0M', trend: '0%' },
+              { label: 'Conversion Rate', value: '0%', trend: '0%' },
+              { label: 'Avg. Case Time', value: '0 Days', trend: '0 Days' },
+              { label: 'Pipeline Value', value: '£0.0M', trend: '0%' }
+            ]).map((stat, i) => (
               <motion.div 
                 key={i} 
                 whileHover={{ y: -4, boxShadow: "0 12px 30px -10px rgba(139, 115, 46, 0.15)" }}
                 onMouseEnter={playHoverSound}
-                className="bg-[#FEFDF5] border border-archo-gold/20 border-l-[3px] border-l-archo-gold rounded-2xl p-[24px] transition-all duration-300"
+                className="bg-[#FEFDF5] border border-archo-gold/20 border-l-[3px] border-l-archo-gold rounded-2xl p-[24px] transition-all duration-300 relative overflow-hidden"
               >
+                {cases.length === 0 && (
+                  <div className="absolute inset-0 bg-archo-cream/40 backdrop-blur-[1px] flex items-center justify-center z-10">
+                    <span className="text-[9px] font-bold text-archo-brass uppercase tracking-tighter">Add case to see</span>
+                  </div>
+                )}
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-archo-muted mb-3">{stat.label}</p>
                 <div className="flex items-baseline gap-2">
                   <span className="text-[28px] font-serif font-bold text-archo-ink leading-none">{stat.value}</span>
-                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">{stat.trend}</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                    stat.trend.startsWith('+') ? 'text-emerald-600 bg-emerald-50' : 
+                    stat.trend.startsWith('-') ? 'text-rose-600 bg-rose-50' : 'text-archo-muted bg-archo-brass/5'
+                  }`}>{stat.trend}</span>
                 </div>
               </motion.div>
             ))}
@@ -446,7 +487,9 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
                   <div className="flex items-center justify-between pt-4 border-t border-archo-brass/10">
                     <div className="flex items-center gap-2 text-archo-muted">
                       <Calendar size={13} className="text-archo-brass/60" />
-                      <span className="text-[10px] font-bold uppercase tracking-widest">{item.lastActionDate}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest">
+                        {new Date(item.createdAt || '').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
                     </div>
                     <div className="flex -space-x-2">
                       <div className="w-6 h-6 rounded-full border-2 border-archo-cream bg-archo-ink flex items-center justify-center text-[8px] text-archo-brass-pale font-serif font-bold">AI</div>

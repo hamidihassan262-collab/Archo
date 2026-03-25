@@ -17,7 +17,9 @@ import LineWaves from './components/LineWaves';
 import SettingsModal from './components/SettingsModal';
 import Auth from './components/Auth';
 import Pricing from './components/Pricing';
-import GlobalSearch from './components/GlobalSearch';
+import TopSearchBar from './components/TopSearchBar';
+import HelpModal from './components/HelpModal';
+import NotificationPanel from './components/NotificationPanel';
 import TeamManagement from './components/TeamManagement';
 import LockedFeature from './components/LockedFeature';
 import ProUnlockedNotification from './components/ProUnlockedNotification';
@@ -43,7 +45,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
   const [showProUnlockedNotification, setShowProUnlockedNotification] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile>({
@@ -140,10 +144,10 @@ export default function App() {
   }, [typedKey]);
 
   useEffect(() => {
-    if (isSettingsOpen || isAuthModalOpen || isGlobalSearchOpen || showOnboarding) {
+    if (isSettingsOpen || isAuthModalOpen || isHelpModalOpen || showOnboarding) {
       playModalOpenSound();
     }
-  }, [isSettingsOpen, isAuthModalOpen, isGlobalSearchOpen, showOnboarding]);
+  }, [isSettingsOpen, isAuthModalOpen, isHelpModalOpen, showOnboarding]);
 
   const handleToggleMute = () => {
     const newState = toggleMute();
@@ -159,13 +163,86 @@ export default function App() {
     }
   };
 
+  const fetchNotifications = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setNotifications(data || []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const checkAndCreateWelcomeNotification = async (userId: string) => {
+    try {
+      // Check if any notifications exist for this user
+      const { count, error: countError } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      
+      if (countError) throw countError;
+
+      if (count === 0) {
+        // Create welcome notification
+        const { error: insertError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: userId,
+            message: 'Welcome to Archo — we are glad to have you. Your mortgage AI assistant is ready to help you find the right lender for every client. Explore the Criteria Explorer to get started.',
+            read: false
+          });
+        
+        if (insertError) throw insertError;
+        await fetchNotifications(userId);
+      }
+    } catch (error) {
+      console.error('Error checking/creating welcome notification:', error);
+    }
+  };
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', id);
+      
+      if (error) throw error;
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!userProfile.id) return;
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', userProfile.id)
+        .eq('read', false);
+      
+      if (error) throw error;
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
   const fetchProfile = async (userId: string, email: string) => {
     const profile = await getUserProfile(userId);
     if (profile) {
       setUserProfile({
         ...profile,
         email,
-        full_name: profile.full_name || 'Hassan Hamidi'
+        full_name: profile.full_name || 'User'
       });
       
       if (profile.onboarding_completed === false) {
@@ -179,6 +256,8 @@ export default function App() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await fetchProfile(user.id, user.email || '');
+        await fetchNotifications(user.id);
+        await checkAndCreateWelcomeNotification(user.id);
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
@@ -194,6 +273,8 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         fetchProfile(session.user.id, session.user.email || '');
+        fetchNotifications(session.user.id);
+        checkAndCreateWelcomeNotification(session.user.id);
         setIsAuthenticated(true);
         setIsAuthModalOpen(false);
       }
@@ -217,17 +298,6 @@ export default function App() {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        setIsGlobalSearchOpen(true);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const handleResetOnboarding = async () => {
@@ -468,59 +538,79 @@ export default function App() {
         </div>
 
         {/* Top Header Bar */}
-        <header className="h-16 bg-archo-paper/80 backdrop-blur-md border-b border-archo-brass/10 flex items-center justify-between px-8 sticky top-0 z-20">
-          <div className="flex items-center gap-4 text-archo-slate">
-            <Search size={18} />
-            <input 
-              type="text" 
-              placeholder="Search cases, documents, or criteria..." 
-              className="bg-transparent border-none focus:outline-none text-sm w-64 placeholder:text-archo-muted cursor-pointer"
-              readOnly
-              onClick={() => setIsGlobalSearchOpen(true)}
-            />
-            <div className="hidden md:flex items-center gap-1 px-1.5 py-0.5 bg-archo-brass/5 border border-archo-brass/10 rounded text-[10px] font-bold text-archo-brass">
-              <kbd>⌘</kbd>
-              <kbd>K</kbd>
-            </div>
-          </div>
+        <header className="h-20 bg-archo-paper/80 backdrop-blur-md border-b border-archo-brass/10 flex items-center justify-between px-8 sticky top-0 z-40">
+          <TopSearchBar 
+            onSelectCase={(id) => {
+              setSelectedCase(null); // Clear selected case first to trigger refresh if needed
+              setActiveTab('cases');
+            }}
+            onSelectLender={(id) => setActiveTab('criteria')}
+          />
           
           <div className="flex items-center gap-6">
-            <button 
-              onClick={handleToggleMute}
-              onMouseEnter={playHoverSound}
-              className="text-archo-slate hover:text-archo-brass transition-colors"
-              title={isSoundEnabled ? "Mute sounds" : "Unmute sounds"}
-            >
-              {isSoundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-            </button>
-            <button 
-              onClick={() => {
-                playClickSound();
-                alert('Notifications panel coming soon!');
-              }}
-              onMouseEnter={playHoverSound}
-              className="text-archo-slate hover:text-archo-brass transition-colors relative"
-            >
-              <Bell size={20} />
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-archo-brass rounded-full border-2 border-archo-paper"></span>
-            </button>
-            <button 
-              onClick={() => {
-                playClickSound();
-                alert('Help center opening...');
-              }}
-              onMouseEnter={playHoverSound}
-              className="text-archo-slate hover:text-archo-brass transition-colors"
-            >
-              <HelpCircle size={20} />
-            </button>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handleToggleMute}
+                onMouseEnter={playHoverSound}
+                className="h-10 px-3 flex items-center gap-2 rounded-xl bg-archo-cream/50 border border-archo-brass/10 text-archo-slate hover:text-archo-brass hover:border-archo-brass/30 transition-all shadow-sm"
+                title={isSoundEnabled ? "Disable sounds" : "Enable sounds"}
+              >
+                {isSoundEnabled ? (
+                  <>
+                    <Volume2 size={16} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Sound On</span>
+                  </>
+                ) : (
+                  <>
+                    <VolumeX size={16} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Sound Off</span>
+                  </>
+                )}
+              </button>
+              <button 
+                onClick={() => {
+                  playClickSound();
+                  setIsNotificationPanelOpen(!isNotificationPanelOpen);
+                }}
+                onMouseEnter={playHoverSound}
+                className={`w-10 h-10 flex items-center justify-center rounded-xl bg-archo-cream/50 border border-archo-brass/10 text-archo-slate hover:text-archo-brass hover:border-archo-brass/30 transition-all shadow-sm relative ${isNotificationPanelOpen ? 'border-archo-brass text-archo-brass' : ''}`}
+              >
+                <Bell size={18} />
+                {notifications.some(n => !n.read) && (
+                  <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-archo-gold rounded-full border-2 border-archo-paper shadow-[0_0_8px_rgba(212,175,55,0.6)] animate-pulse"></span>
+                )}
+              </button>
+              <button 
+                onClick={() => {
+                  playClickSound();
+                  setIsHelpModalOpen(true);
+                }}
+                onMouseEnter={playHoverSound}
+                className="w-10 h-10 flex items-center justify-center rounded-xl bg-archo-cream/50 border border-archo-brass/10 text-archo-slate hover:text-archo-brass hover:border-archo-brass/30 transition-all shadow-sm"
+              >
+                <HelpCircle size={18} />
+              </button>
+            </div>
+
             <div className="h-8 w-[1px] bg-archo-brass/10"></div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-archo-brass uppercase tracking-widest">
-                {hasProAccess ? (userProfile.plan === 'company' ? 'Company Plan' : 'Pro Plan') : 'Solo Plan'}
-              </span>
-              <div className="px-2 py-0.5 bg-archo-brass text-archo-cream rounded text-[10px] font-bold uppercase tracking-tighter">
-                {hasProAccess ? (userProfile.plan === 'company' ? 'Enterprise' : 'Pro') : 'Free'}
+            
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-[10px] font-bold text-archo-ink uppercase tracking-widest">{userProfile.full_name}</p>
+                <p className="text-[9px] font-bold text-archo-muted uppercase tracking-tighter">{userProfile.role}</p>
+              </div>
+              
+              <div className={`px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-[0.15em] shadow-sm flex items-center gap-2 ${
+                userProfile.plan === 'company' 
+                  ? 'bg-archo-gold/10 text-archo-gold border-archo-gold/30' 
+                  : userProfile.plan === 'pro'
+                    ? 'bg-archo-brass/10 text-archo-brass border-archo-brass/30'
+                    : 'bg-archo-slate/10 text-archo-slate border-archo-slate/30'
+              }`}>
+                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                  userProfile.plan === 'company' ? 'bg-archo-gold' : userProfile.plan === 'pro' ? 'bg-archo-brass' : 'bg-archo-slate'
+                }`} />
+                {userProfile.plan === 'company' ? 'Company' : userProfile.plan === 'pro' ? 'Pro' : 'Free'}
               </div>
             </div>
           </div>
@@ -549,11 +639,17 @@ export default function App() {
         />
       )}
 
-      <GlobalSearch 
-        isOpen={isGlobalSearchOpen} 
-        onClose={() => setIsGlobalSearchOpen(false)}
-        onSelectCase={(id) => setActiveTab('cases')}
-        onSelectLender={(id) => setActiveTab('criteria')}
+      <HelpModal 
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
+      />
+
+      <NotificationPanel 
+        isOpen={isNotificationPanelOpen}
+        onClose={() => setIsNotificationPanelOpen(false)}
+        notifications={notifications}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
       />
 
       <ProUnlockedNotification 

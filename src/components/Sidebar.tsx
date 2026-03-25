@@ -187,7 +187,7 @@ export default function Sidebar({
               {!isCollapsed && (
                 <div className="overflow-hidden flex-1">
                   <div className="flex items-center justify-between gap-1">
-                    <p className="text-xs font-serif font-bold truncate text-archo-cream">{userProfile.full_name || 'Hassan Hamidi'}</p>
+                    <p className="text-xs font-serif font-bold truncate text-archo-cream">{userProfile.full_name || 'User'}</p>
                     {getPlanBadge(userProfile.plan)}
                   </div>
                   <p className="text-[10px] text-archo-muted truncate uppercase tracking-wider font-bold">{userProfile.role}</p>

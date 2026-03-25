@@ -19,13 +19,15 @@ const getAudioContext = () => {
 
 const isMuted = () => {
   const enabled = localStorage.getItem('archo_sounds_enabled');
+  if (enabled === null) return false; // Default to enabled (not muted)
   return enabled === 'false';
 };
 
 export const toggleMute = () => {
-  const current = isMuted();
-  localStorage.setItem('archo_sounds_enabled', String(current));
-  return !current;
+  const currentlyEnabled = !isMuted();
+  const nextEnabled = !currentlyEnabled;
+  localStorage.setItem('archo_sounds_enabled', String(nextEnabled));
+  return nextEnabled;
 };
 
 export const getMuteStatus = () => {
