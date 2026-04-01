@@ -77,31 +77,18 @@ export default function Sidebar({
   };
 
   return (
-    <div className={`${isCollapsed ? 'w-20' : 'w-64'} bg-archo-ink h-screen flex flex-col text-archo-cream fixed left-0 top-0 border-r border-archo-brass/20 z-30 overflow-hidden transition-all duration-300 ease-in-out`}>
-      <Waves
-        lineColor="#ffffff"
-        backgroundColor="transparent"
-        waveSpeedX={0.0125}
-        waveSpeedY={0.01}
-        waveAmpX={40}
-        waveAmpY={20}
-        friction={0.9}
-        tension={0.01}
-        maxCursorMove={120}
-        xGap={12}
-        yGap={36}
-      />
+    <div className={`${isCollapsed ? 'w-20' : 'w-64'} bg-archo-ink/90 backdrop-blur-md h-screen flex flex-col text-archo-cream fixed left-0 top-0 border-r border-archo-brass/20 z-30 overflow-hidden transition-all duration-300 ease-in-out`}>
       <div className="relative z-10 flex flex-col h-full">
-        <div className={`p-6 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
-          {!isCollapsed && <ArchoLogo className="w-32" light />}
-          {isCollapsed && <div className="w-8 h-8 bg-archo-brass rounded-lg flex items-center justify-center font-serif font-bold text-archo-cream">A</div>}
+        <div className={`p-4 lg:p-6 relative flex items-center ${isCollapsed ? 'justify-center' : 'justify-start'}`}>
+          <ArchoLogo className={isCollapsed ? "w-8" : "w-32"} light collapsed={isCollapsed} />
           <button 
             onClick={() => {
               playClickSound();
               setIsCollapsed(!isCollapsed);
             }}
             onMouseEnter={playHoverSound}
-            className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-archo-brass hover:bg-white/10 transition-colors"
+            className="absolute top-3 right-2 text-archo-brass hover:text-archo-gold transition-all duration-200 z-20"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
           >
             {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
           </button>
@@ -139,14 +126,14 @@ export default function Sidebar({
         ))}
       </nav>
 
-      <div className={`p-6 border-t border-archo-brass/10 ${isCollapsed ? 'flex flex-col items-center gap-4' : ''}`}>
+      <div className={`${isCollapsed ? 'p-4' : 'p-6'} border-t border-archo-brass/10 ${isCollapsed ? 'flex flex-col items-center gap-4' : ''}`}>
         {!userProfile.email ? (
           <BorderGlow
             glowColor="45 50 50"
             colors={['#8B732E', '#B59410', '#D4AF37']}
             backgroundColor="rgba(139, 115, 46, 0.1)"
             borderRadius={12}
-            glowRadius={20}
+            glowRadius={isCollapsed ? 0 : 20}
             glowIntensity={0.5}
             className="w-full"
           >

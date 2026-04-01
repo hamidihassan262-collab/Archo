@@ -455,7 +455,62 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex relative">
+      {/* Global Background Elements */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        {/* Warm Gold Radial Gradient */}
+        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.08),transparent_70%)] -translate-y-1/4 translate-x-1/4 blur-3xl" />
+        
+        {/* Background Threads - Only on non-LineWaves pages */}
+        {!(activeTab === 'cases' || activeTab === 'criteria' || activeTab === 'team') && (
+          <div className="absolute inset-0 opacity-50">
+            <Threads
+              amplitude={3.6}
+              distance={0.9}
+              enableMouseInteraction={false}
+              color={[0.54, 0.45, 0.18]} // Archo Brass color normalized
+            />
+          </div>
+        )}
+
+        {/* Background Waves - Only on non-LineWaves pages */}
+        {!(activeTab === 'cases' || activeTab === 'criteria' || activeTab === 'team') && (
+          <div className="absolute inset-0 opacity-30">
+            <Waves
+              lineColor="#D4AF37"
+              backgroundColor="transparent"
+              waveAmpX={40}
+              waveAmpY={25}
+              waveSpeedX={0.01}
+              waveSpeedY={0.004}
+              xGap={12}
+              yGap={36}
+            />
+          </div>
+        )}
+
+        {/* Line Waves for specific pages */}
+        {(activeTab === 'cases' || activeTab === 'criteria' || activeTab === 'team') && (
+          <div className="absolute inset-0 opacity-60">
+            <LineWaves
+              speed={0.3}
+              innerLineCount={32}
+              outerLineCount={36}
+              warpIntensity={1}
+              rotation={-45}
+              edgeFadeWidth={0}
+              colorCycleSpeed={1}
+              brightness={0.4}
+              color1="#8B732E" // Archo Brass
+              color2="#B59410" // Archo Brass Light
+              color3="#D4AF37" // Archo Brass Pale
+              enableMouseInteraction
+              mouseInfluence={5}
+            />
+          </div>
+        )}
+      </div>
+
       {showOnboarding && (
         <Onboarding 
           onComplete={() => {
@@ -482,61 +537,6 @@ export default function App() {
       />
       
       <main className={`flex-1 ${isSidebarCollapsed ? 'ml-20' : 'ml-64'} min-h-screen flex flex-col relative transition-all duration-300 ease-in-out`}>
-        {/* Background Elements */}
-        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
-          {/* Warm Gold Radial Gradient */}
-          <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.08),transparent_70%)] -translate-y-1/4 translate-x-1/4 blur-3xl" />
-          
-          {/* Background Threads - Only on non-LineWaves pages */}
-          {!(activeTab === 'cases' || activeTab === 'criteria' || activeTab === 'team') && (
-            <div className="absolute inset-0 opacity-30">
-              <Threads
-                amplitude={3.6}
-                distance={0.9}
-                enableMouseInteraction={false}
-                color={[0.54, 0.45, 0.18]} // Archo Brass color normalized
-              />
-            </div>
-          )}
-
-          {/* Background Waves - Only on non-LineWaves pages */}
-          {!(activeTab === 'cases' || activeTab === 'criteria' || activeTab === 'team') && (
-            <div className="absolute inset-0 opacity-[0.15]">
-              <Waves
-                lineColor="#D4AF37"
-                backgroundColor="transparent"
-                waveAmpX={40}
-                waveAmpY={25}
-                waveSpeedX={0.01}
-                waveSpeedY={0.004}
-                xGap={12}
-                yGap={36}
-              />
-            </div>
-          )}
-
-          {/* Line Waves for specific pages */}
-          {(activeTab === 'cases' || activeTab === 'criteria' || activeTab === 'team') && (
-            <div className="absolute inset-0 opacity-60">
-              <LineWaves
-                speed={0.3}
-                innerLineCount={32}
-                outerLineCount={36}
-                warpIntensity={1}
-                rotation={-45}
-                edgeFadeWidth={0}
-                colorCycleSpeed={1}
-                brightness={0.4}
-                color1="#8B732E" // Archo Brass
-                color2="#B59410" // Archo Brass Light
-                color3="#D4AF37" // Archo Brass Pale
-                enableMouseInteraction
-                mouseInfluence={5}
-              />
-            </div>
-          )}
-        </div>
-
         {/* Top Header Bar */}
         <header className="h-20 bg-archo-paper/80 backdrop-blur-md border-b border-archo-brass/10 flex items-center justify-between px-8 sticky top-0 z-40">
           <TopSearchBar 

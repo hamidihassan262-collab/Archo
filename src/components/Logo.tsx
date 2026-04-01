@@ -1,8 +1,47 @@
 import React from 'react';
 
-export default function ArchoLogo({ className = "w-full h-auto", light = false }: { className?: string; light?: boolean }) {
+export default function ArchoLogo({ className = "w-full h-auto", light = false, collapsed = false }: { className?: string; light?: boolean; collapsed?: boolean }) {
   const color = light ? "#D4AF37" : "#8B732E";
   
+  if (collapsed) {
+    return (
+      <div className={`${className} flex items-center justify-center`}>
+        <svg 
+          viewBox="0 0 100 100" 
+          fill="none" 
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-full h-full"
+        >
+          <defs>
+            <mask id="mask-a-crossbar-collapsed">
+              <rect x="0" y="0" width="100" height="100" fill="white" />
+              <rect x="28" y="38" width="45" height="12" fill="black" />
+            </mask>
+          </defs>
+          <text 
+            x="50%" 
+            y="75" 
+            textAnchor="middle" 
+            fill={color} 
+            mask="url(#mask-a-crossbar-collapsed)"
+            style={{ 
+              fontFamily: '"Cormorant Garamond", serif', 
+              fontSize: '100px', 
+              fontWeight: '500',
+              letterSpacing: '0.02em'
+            }}
+          >
+            A
+          </text>
+          <path 
+            d="M5 58 C 35 54, 65 50, 95 42 C 65 48, 35 52, 5 58 Z" 
+            fill={color} 
+          />
+        </svg>
+      </div>
+    );
+  }
+
   return (
     <div className={`${className} flex items-center justify-center`}>
       <svg 
