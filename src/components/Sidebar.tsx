@@ -34,9 +34,9 @@ export default function Sidebar({
   };
 
   const navItems = [
+    { id: 'copilot', label: 'Archo Chat', icon: MessageSquare },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'cases', label: 'Cases', icon: Briefcase },
-    { id: 'copilot', label: 'Archo Chat', icon: MessageSquare },
     { id: 'criteria', label: 'Criteria Explorer', icon: Search },
     { id: 'compliance', label: 'Compliance', icon: ShieldCheck },
     { id: 'pricing', label: 'Pricing', icon: Gem },

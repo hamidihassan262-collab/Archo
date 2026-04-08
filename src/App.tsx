@@ -42,7 +42,7 @@ import {
 import Onboarding from './components/Onboarding';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState('copilot');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
@@ -66,7 +66,7 @@ export default function App() {
   const [isKeyUnlocked, setIsKeyUnlocked] = useState(false);
   const [typedKey, setTypedKey] = useState('');
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
   const [isSoundEnabled, setIsSoundEnabled] = useState(getMuteStatus());
   const [selectedCase, setSelectedCase] = useState<MortgageCase | null>(null);
 
@@ -351,12 +351,12 @@ export default function App() {
       if (plan === 'pro' || plan === 'company') {
         triggerProUnlocked();
       }
-      setActiveTab('dashboard');
+      setActiveTab('copilot');
     }
   };
 
   const renderContent = () => {
-    const proTabs = ['cases', 'copilot', 'criteria', 'compliance', 'team'];
+    const proTabs = ['cases', 'criteria', 'compliance', 'team'];
     
     if (proTabs.includes(activeTab) && !hasProAccess) {
       return (
@@ -444,10 +444,10 @@ export default function App() {
           <div className="flex flex-col items-center justify-center h-[calc(100vh-64px)] text-archo-slate relative z-10">
             <p className="text-lg font-medium">This section is under development.</p>
             <button 
-              onClick={() => setActiveTab('dashboard')}
+              onClick={() => setActiveTab('copilot')}
               className="mt-4 text-archo-gold font-bold hover:underline"
             >
-              Return to Dashboard
+              Return to Archo Chat
             </button>
           </div>
         );

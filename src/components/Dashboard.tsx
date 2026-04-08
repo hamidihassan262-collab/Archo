@@ -328,32 +328,30 @@ export default function Dashboard({ requireAuth, userProfile, onUpgrade, hasProA
   }
 
   return (
-    <div className="p-8 relative z-10">
-      <header className="mb-14 flex justify-between items-end">
+    <div className="p-8 max-w-7xl mx-auto relative z-10">
+      <header className="mb-10 flex justify-between items-end">
         <div>
-          <h2 className="text-4xl font-serif font-bold text-archo-ink tracking-tight">Case Pipeline</h2>
-          <p className="text-lg text-archo-slate/80 mt-3 font-serif italic">You have {cases.length} active cases this month.</p>
+          <h2 className="text-4xl font-serif font-bold text-archo-ink tracking-tight">Dashboard</h2>
+          <p className="text-archo-slate mt-2 font-serif italic">Welcome back to your Archo command center.</p>
         </div>
-        <div className="flex items-center gap-4">
-          <PrimaryButton 
-            onClick={() => {
-              playClickSound();
-              requireAuth(() => {
-                if (!hasProAccess && cases.length >= 3) {
-                  setShowLimitModal(true);
-                  playModalOpenSound();
-                } else {
-                  setShowAddModal(true);
-                  playModalOpenSound();
-                }
-              });
-            }}
-            onMouseEnter={playHoverSound}
-            className="px-8 py-3 rounded-full text-sm flex items-center gap-2 shadow-lg shadow-archo-brass/10"
-          >
-            New Case <ArrowRight size={16} />
-          </PrimaryButton>
-        </div>
+        <PrimaryButton 
+          onClick={() => {
+            playClickSound();
+            requireAuth(() => {
+              if (!hasProAccess && cases.length >= 3) {
+                setShowLimitModal(true);
+                playModalOpenSound();
+              } else {
+                setShowAddModal(true);
+                playModalOpenSound();
+              }
+            });
+          }}
+          onMouseEnter={playHoverSound}
+          className="px-8 py-3 rounded-full text-sm flex items-center gap-2 shadow-lg shadow-archo-brass/10"
+        >
+          <Plus size={18} /> New Case
+        </PrimaryButton>
       </header>
 
       {/* Analytics Gating */}
